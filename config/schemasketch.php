@@ -20,6 +20,10 @@ return [
         'sessions', 'password_reset_tokens', 'personal_access_tokens',
     ],
 
+    // Where `pull` looks for Eloquent models to find relationships the
+    // database has no foreign key for. Null means app/Models.
+    'models_path' => null,
+
     // Seconds to wait for the SchemaSketch API.
     'timeout' => (int) env('SCHEMASKETCH_TIMEOUT', 15),
 

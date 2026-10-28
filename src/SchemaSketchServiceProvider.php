@@ -18,8 +18,9 @@ class SchemaSketchServiceProvider extends ServiceProvider
                 __DIR__.'/../config/schemasketch.php' => config_path('schemasketch.php'),
             ], 'schemasketch-config');
 
-            // Commands (pull, diff, push) are registered here from milestone 2
-            // on, once the design in docs/DESIGN.md is approved.
+            $this->commands([
+                Commands\PullCommand::class,
+            ]);
         }
     }
 }
