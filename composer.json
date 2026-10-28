@@ -1,0 +1,44 @@
+{
+    "name": "schemasketch/laravel",
+    "description": "Turn any Laravel app into a live SchemaSketch diagram, check it for drift, and generate migrations from your diagram.",
+    "keywords": ["laravel", "schemasketch", "dbml", "database", "erd", "migrations", "schema"],
+    "homepage": "https://schemasketch.dev",
+    "license": "MIT",
+    "authors": [
+        { "name": "Stelios Ioannides", "homepage": "https://schemasketch.dev" }
+    ],
+    "require": {
+        "php": "^8.2",
+        "illuminate/console": "^12.0|^13.0",
+        "illuminate/database": "^12.0|^13.0",
+        "illuminate/http": "^12.0|^13.0",
+        "illuminate/support": "^12.0|^13.0"
+    },
+    "require-dev": {
+        "laravel/pint": "^1.18",
+        "orchestra/testbench": "^10.0|^11.0",
+        "pestphp/pest": "^3.0|^4.0|^5.0",
+        "pestphp/pest-plugin-laravel": "^3.0|^4.0|^5.0"
+    },
+    "autoload": {
+        "psr-4": { "SchemaSketch\\Laravel\\": "src/" }
+    },
+    "autoload-dev": {
+        "psr-4": { "SchemaSketch\\Laravel\\Tests\\": "tests/" }
+    },
+    "scripts": {
+        "test": "pest",
+        "format": "pint"
+    },
+    "extra": {
+        "laravel": {
+            "providers": ["SchemaSketch\\Laravel\\SchemaSketchServiceProvider"]
+        }
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": { "pestphp/pest-plugin": true }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
