@@ -6,6 +6,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use SchemaSketch\Laravel\Api\ApiException;
 use SchemaSketch\Laravel\Api\Client;
+use SchemaSketch\Laravel\Eloquent\Planner;
 use SchemaSketch\Laravel\Inspect\DatabaseSchema;
 use SchemaSketch\Laravel\Migrations\Writer;
 use SchemaSketch\Laravel\Schema\Differ;
@@ -17,6 +18,8 @@ class PushCommand extends Command
         {--diagram= : The diagram to read (defaults to SCHEMASKETCH_DIAGRAM)}
         {--connection= : The database connection to compare with (defaults to your default connection)}
         {--path= : Where to write the migration (defaults to database/migrations)}
+        {--models : Also create models for new tables, and add new relationships to your existing models}
+        {--factories : Also create factories for the new models (implies --models)}
         {--force : Write without asking, even if the migration drops something}';
 
     protected $description = 'Turn the differences between a SchemaSketch diagram and your database into one new migration (never runs it)';
@@ -75,7 +78,7 @@ class PushCommand extends Command
 
         $writer = new Writer($differ);
         $migration = $writer->write($diagram, $database, $changes, $ignore);
-        $file = rtrim($this->option('path') ?: database_path('migrations'), '/\\').'/'.date('Y_m_d_His').'_schemasketch_sync.php';
+        $file = rtrim($this->option('path') ?: database_path('migrations'), '/\\').'/'.now()->format('Y_m_d_His').'_schemasketch_sync.php';
 
         foreach (explode("\n", rtrim($migration)) as $line) {
             $this->line($line);
@@ -112,6 +115,56 @@ class PushCommand extends Command
 
         $migrate = $this->option('path') ? 'php artisan migrate --path='.$this->relative(dirname($file)) : 'php artisan migrate';
         $this->info('Wrote '.$this->relative($file).". Review it, then run: {$migrate}");
+
+        if ($this->option('models') || $this->option('factories')) {
+            return $this->writeModels($diagram, $changes, $ignore);
+        }
+
+        return self::SUCCESS;
+    }
+
+    private function writeModels(array $diagram, array $changes, array $ignore): int
+    {
+        $planner = new Planner(
+            rtrim(config('schemasketch.models_path') ?: app_path('Models'), '/\\'),
+            rtrim(config('schemasketch.factories_path') ?: database_path('factories'), '/\\'),
+            config('schemasketch.models_namespace', 'App\\Models'),
+            config('schemasketch.factories_namespace', 'Database\\Factories'),
+        );
+        $files = $planner->plan($diagram, $changes, (bool) $this->option('factories'), $ignore);
+
+        $this->newLine();
+        foreach ($planner->notes as $note) {
+            $this->warn($note);
+        }
+        if (! $files) {
+            $this->line('No model or factory changes needed.');
+
+            return self::SUCCESS;
+        }
+
+        foreach ($files as $f) {
+            $this->line(($f['action'] === 'create' ? 'Create ' : 'Update ').$this->relative($f['path'])." ({$f['summary']})");
+            if ($this->output->isVerbose() || $f['action'] === 'create') {
+                foreach (explode("\n", rtrim($f['content'])) as $line) {
+                    $this->line('    '.$line);
+                }
+            }
+        }
+
+        if (! $this->option('force') && ! $this->confirm('Write these '.count($files).' model and factory file(s)?', true)) {
+            $this->line('No model or factory files written. The migration was written.');
+
+            return self::SUCCESS;
+        }
+
+        foreach ($files as $f) {
+            if (! is_dir(dirname($f['path']))) {
+                mkdir(dirname($f['path']), 0755, true);
+            }
+            file_put_contents($f['path'], $f['content']);
+        }
+        $this->info('Wrote '.count($files).' model and factory file(s).');
 
         return self::SUCCESS;
     }

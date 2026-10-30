@@ -20,9 +20,14 @@ return [
         'sessions', 'password_reset_tokens', 'personal_access_tokens',
     ],
 
-    // Where `pull` looks for Eloquent models to find relationships the
-    // database has no foreign key for. Null means app/Models.
+    // Where your Eloquent models live: `pull` reads relationships from them,
+    // and `push --models` writes new ones there. Null means app/Models.
     'models_path' => null,
+    'models_namespace' => 'App\\Models',
+
+    // Where `push --factories` writes factories. Null means database/factories.
+    'factories_path' => null,
+    'factories_namespace' => 'Database\\Factories',
 
     // Seconds to wait for the SchemaSketch API.
     'timeout' => (int) env('SCHEMASKETCH_TIMEOUT', 15),

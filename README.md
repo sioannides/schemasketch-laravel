@@ -118,12 +118,33 @@ as plain text. MySQL and PostgreSQL aren't affected.
 
 | Option | |
 | --- | --- |
+| `--models` | Also create models for new tables, and add new relationships to your existing models |
+| `--factories` | Also create factories for the new models (implies `--models`) |
 | `--force` | Write without asking (also skips the second question) |
 | `--path=database/migrations` | Where to write the migration |
 | `--diagram=ID` | Use this diagram instead of `SCHEMASKETCH_DIAGRAM` |
 | `--connection=pgsql` | Compare with this database connection |
 
-Coming next: `--models` and `--factories` on `push`.
+### Models and factories
+
+`--models` writes an Eloquent model for every table the push adds, with
+`$fillable`, casts (booleans, decimals, JSON, dates), `SoftDeletes` and
+`HasUuids` where they apply, and its relationships: `belongsTo`, `hasMany`,
+`hasOne` for a unique column, and `belongsToMany` through a plain pivot table
+(which gets no model of its own).
+
+Models you already have only get the relationships this push adds, such as
+`posts()` on `User` when a new `posts` table points at `users`, and only if
+there's no method of that name yet. Nothing else in the file changes.
+
+`--factories` adds a factory for each new model, with fake data picked by
+column name and type. Foreign keys use the related model's factory, or an
+existing row if that model has none.
+
+You're shown every file and asked before anything is written. Models and
+factories go to `app/Models` and `database/factories`; change `models_path`,
+`models_namespace`, `factories_path` and `factories_namespace` in
+`config/schemasketch.php` if yours live elsewhere.
 
 
 ## License

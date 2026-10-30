@@ -16,6 +16,8 @@ use SchemaSketch\Laravel\Inspect\DatabaseSchema;
 const PUSH_API = 'https://schemasketch.test/api';
 
 beforeEach(function () {
+    // The migration's file name has the time in it; keep it still.
+    $this->freezeTime();
     $this->dir = sys_get_temp_dir().'/schemasketch-push-'.uniqid();
     config(['schemasketch.api_url' => PUSH_API, 'schemasketch.token' => 'tok', 'schemasketch.diagram' => 'd1']);
 
@@ -128,7 +130,7 @@ it('asks before writing, and writes nothing on no', function () {
     serveDiagram(targetDiagram());
 
     $this->artisan('schemasketch:push', ['--path' => $this->dir])
-        ->expectsConfirmation('Write this migration to '.$this->dir.'/'.date('Y_m_d_His').'_schemasketch_sync.php?', 'no')
+        ->expectsConfirmation('Write this migration to '.$this->dir.'/'.now()->format('Y_m_d_His').'_schemasketch_sync.php?', 'no')
         ->expectsOutputToContain('Nothing written')
         ->assertFailed();
 
@@ -139,7 +141,7 @@ it('asks a second time when the migration drops something', function () {
     serveDiagram(targetDiagram());
 
     $this->artisan('schemasketch:push', ['--path' => $this->dir])
-        ->expectsQuestion('Write this migration to '.$this->dir.'/'.date('Y_m_d_His').'_schemasketch_sync.php?', true)
+        ->expectsQuestion('Write this migration to '.$this->dir.'/'.now()->format('Y_m_d_His').'_schemasketch_sync.php?', true)
         ->expectsOutputToContain('users: column legacy_code')
         ->expectsConfirmation('Data in these will be lost when the migration runs. Write it anyway?', 'no')
         ->assertFailed();

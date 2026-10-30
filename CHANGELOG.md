@@ -8,6 +8,12 @@ moves `main` to `dev`, dates that section and tags the release.
 
 ## Unreleased
 
+- `push --models` creates Eloquent models for new tables (fillable, casts,
+  soft deletes, UUID keys, relationships) and adds new relationships to your
+  existing models, without touching anything else in them.
+- `push --factories` creates factories for the new models.
+- New config: `models_namespace`, `factories_path`, `factories_namespace`.
+
 ## 0.1.1 (2026-10-30)
 
 - Badges in the README: version, tests, downloads, PHP and Laravel versions, license, service status.
