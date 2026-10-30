@@ -3,7 +3,8 @@
 Turn any Laravel app into a live [SchemaSketch](https://schemasketch.dev)
 diagram, check it for drift, and generate migrations from your diagram.
 
-> **Work in progress.** `pull`, `diff` and `push` work; not on Packagist yet.
+> Early release (0.x): commands and options may still change before 1.0.
+> Full guide: [schemasketch.dev/laravel-package](https://schemasketch.dev/laravel-package)
 
 ```bash
 composer require schemasketch/laravel --dev

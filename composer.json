@@ -1,12 +1,28 @@
 {
     "name": "schemasketch/laravel",
     "description": "Turn any Laravel app into a live SchemaSketch diagram, check it for drift, and generate migrations from your diagram.",
-    "keywords": ["laravel", "schemasketch", "dbml", "database", "erd", "migrations", "schema"],
+    "keywords": [
+        "laravel",
+        "schemasketch",
+        "dbml",
+        "database",
+        "erd",
+        "migrations",
+        "schema"
+    ],
     "homepage": "https://schemasketch.dev",
     "license": "MIT",
     "authors": [
-        { "name": "Stelios Ioannides", "homepage": "https://schemasketch.dev" }
+        {
+            "name": "Stelios Ioannides",
+            "homepage": "https://schemasketch.dev"
+        }
     ],
+    "support": {
+        "issues": "https://github.com/sioannides/schemasketch-laravel/issues",
+        "source": "https://github.com/sioannides/schemasketch-laravel",
+        "docs": "https://schemasketch.dev/laravel-package"
+    },
     "require": {
         "php": "^8.2",
         "illuminate/console": "^12.0|^13.0",
@@ -22,10 +38,14 @@
         "pestphp/pest-plugin-laravel": "^3.0|^4.0|^5.0"
     },
     "autoload": {
-        "psr-4": { "SchemaSketch\\Laravel\\": "src/" }
+        "psr-4": {
+            "SchemaSketch\\Laravel\\": "src/"
+        }
     },
     "autoload-dev": {
-        "psr-4": { "SchemaSketch\\Laravel\\Tests\\": "tests/" }
+        "psr-4": {
+            "SchemaSketch\\Laravel\\Tests\\": "tests/"
+        }
     },
     "scripts": {
         "test": "pest",
@@ -33,12 +53,16 @@
     },
     "extra": {
         "laravel": {
-            "providers": ["SchemaSketch\\Laravel\\SchemaSketchServiceProvider"]
+            "providers": [
+                "SchemaSketch\\Laravel\\SchemaSketchServiceProvider"
+            ]
         }
     },
     "config": {
         "sort-packages": true,
-        "allow-plugins": { "pestphp/pest-plugin": true }
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
     },
     "minimum-stability": "stable",
     "prefer-stable": true
