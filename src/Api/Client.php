@@ -6,7 +6,7 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 
-// The SchemaSketch API calls this package makes (see docs/DESIGN.md).
+// The SchemaSketch API calls this package makes.
 // Errors come back as ApiException with a message meant for the person
 // running the command; the token is never part of one.
 class Client

@@ -54,7 +54,13 @@ it('keeps multi-column indexes', function () {
 });
 
 it('reads foreign keys as relationships', function () {
-    expect(readSchema()['refs'])->toBe([[
+    // The foreign key's name differs by driver (SQLite has none), so it's
+    // checked apart from the rest.
+    $refs = readSchema()['refs'];
+    expect($refs[0]['name'] === null || is_string($refs[0]['name']))->toBeTrue();
+    unset($refs[0]['name']);
+
+    expect($refs)->toBe([[
         'id' => null,
         'from' => ['table' => 'posts', 'column' => 'user_id'],
         'to' => ['table' => 'users', 'column' => 'id'],

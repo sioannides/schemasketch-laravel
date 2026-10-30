@@ -28,9 +28,11 @@ class DatabaseSchema
         foreach ($tables as $table) {
             $indexes = $builder->getIndexes($table);
             $primary = collect($indexes)->firstWhere('primary', true)['columns'] ?? [];
+            // Column => its one-column unique index's name, kept so `push`
+            // can drop that index by its real name.
             $uniqueColumns = collect($indexes)
                 ->filter(fn ($i) => $i['unique'] && ! $i['primary'] && count($i['columns']) === 1)
-                ->pluck('columns.0')
+                ->mapWithKeys(fn ($i) => [$i['columns'][0] => $i['name']])
                 ->all();
 
             $columns = [];
@@ -42,7 +44,8 @@ class DatabaseSchema
                     'type' => $type,
                     'pk' => count($primary) === 1 && $primary[0] === $col['name'],
                     'not_null' => ! $col['nullable'],
-                    'unique' => in_array($col['name'], $uniqueColumns, true),
+                    'unique' => isset($uniqueColumns[$col['name']]),
+                    'unique_index' => $uniqueColumns[$col['name']] ?? null,
                     'increment' => (bool) $col['auto_increment'],
                     'default' => $col['auto_increment'] ? null : $this->parseDefault($col['default']),
                     'note' => $col['comment'] ?: null,
@@ -76,6 +79,7 @@ class DatabaseSchema
                 }
                 $schema['refs'][] = [
                     'id' => null,
+                    'name' => $fk['name'] ?? null,
                     'from' => ['table' => $table, 'column' => $fk['columns'][0]],
                     'to' => ['table' => $fk['foreign_table'], 'column' => $fk['foreign_columns'][0]],
                     'kind' => 'many_to_one',

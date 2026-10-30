@@ -21,6 +21,7 @@ class SchemaSketchServiceProvider extends ServiceProvider
             $this->commands([
                 Commands\PullCommand::class,
                 Commands\DiffCommand::class,
+                Commands\PushCommand::class,
             ]);
         }
     }

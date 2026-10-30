@@ -3,8 +3,7 @@
 Turn any Laravel app into a live [SchemaSketch](https://schemasketch.dev)
 diagram, check it for drift, and generate migrations from your diagram.
 
-> **Work in progress.** `pull` and `diff` work; `push` is next. See
-> [docs/DESIGN.md](docs/DESIGN.md).
+> **Work in progress.** `pull`, `diff` and `push` work; not on Packagist yet.
 
 ```bash
 composer require schemasketch/laravel --dev
@@ -81,9 +80,33 @@ choice there:
 | `--diagram=ID` | Use this diagram instead of `SCHEMASKETCH_DIAGRAM` |
 | `--connection=pgsql` | Read this database connection |
 
-Coming next: `schemasketch:push` (the difference as one new migration).
+## `php artisan schemasketch:push`
 
-Never edits existing migrations or runs them.
+Turns the differences `diff` finds into **one new migration**
+(`database/migrations/…_schemasketch_sync.php`) whose `up()` makes the
+database match the diagram and whose `down()` puts it back.
+
+- Shows the migration and asks before writing it. If it drops a table or
+  column, or narrows a type, it asks a second time.
+- Never runs the migration and never edits existing ones. Run
+  `php artisan migrate` yourself after reviewing it.
+- Foreign keys are dropped first and added last, so tables can be created
+  and dropped in any order.
+- A column pointing at an auto-increment key is written as unsigned, as
+  Laravel's `id()` is.
+- Primary key and auto-increment changes on existing columns are listed
+  for you to do by hand, not generated.
+- Works with a read-only token.
+
+| Option | |
+| --- | --- |
+| `--force` | Write without asking (also skips the second question) |
+| `--path=database/migrations` | Where to write the migration |
+| `--diagram=ID` | Use this diagram instead of `SCHEMASKETCH_DIAGRAM` |
+| `--connection=pgsql` | Compare with this database connection |
+
+Coming next: `--models` and `--factories` on `push`.
+
 
 ## License
 

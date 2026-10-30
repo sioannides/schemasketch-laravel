@@ -4,7 +4,7 @@ namespace SchemaSketch\Laravel\Schema;
 
 // Databases name the same type differently (SQLite says "numeric" for
 // decimal(8,2), PostgreSQL says "int8" for bigint), so diff compares type
-// families, not names. See docs/DESIGN.md, "How types are compared".
+// families, not names.
 class TypeFamilies
 {
     private const FAMILIES = [

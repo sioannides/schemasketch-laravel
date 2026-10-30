@@ -15,7 +15,9 @@ class Differ
 
     /**
      * @return list<array{change: string, object: string, table: string, name: string,
-     *                    details: list<array{field: string, database: mixed, diagram: mixed}>, destructive: bool}>
+     *                    details: list<array{field: string, database: mixed, diagram: mixed}>, destructive: bool,
+     *                    data: array{diagram: ?array, database: ?array}|null}>
+     *                    `data` holds the index or foreign key itself from each side, for `push`.
      */
     public function diff(array $diagram, array $database, array $ignoreTables = []): array
     {
@@ -138,10 +140,10 @@ class Differ
 
         $changes = [];
         foreach ($diagramIndexes->diffKeys($dbIndexes) as $name => $i) {
-            $changes[] = $this->change('added', 'index', $table, $name);
+            $changes[] = $this->change('added', 'index', $table, $name, data: ['diagram' => $i, 'database' => null]);
         }
         foreach ($dbIndexes->diffKeys($diagramIndexes) as $name => $i) {
-            $changes[] = $this->change('removed', 'index', $table, $name);
+            $changes[] = $this->change('removed', 'index', $table, $name, data: ['diagram' => null, 'database' => $i]);
         }
 
         return $changes;
@@ -166,7 +168,7 @@ class Differ
         foreach ($diagramRefs as $ref) {
             $match = $find($dbRefs, $ref);
             if (! $match) {
-                $changes[] = $this->change('added', 'foreign key', $ref['from']['table'], $ref['label']);
+                $changes[] = $this->change('added', 'foreign key', $ref['from']['table'], $ref['label'], data: ['diagram' => $ref, 'database' => null]);
 
                 continue;
             }
@@ -177,12 +179,12 @@ class Differ
                 }
             }
             if ($details) {
-                $changes[] = $this->change('changed', 'foreign key', $ref['from']['table'], $ref['label'], $details);
+                $changes[] = $this->change('changed', 'foreign key', $ref['from']['table'], $ref['label'], $details, data: ['diagram' => $ref, 'database' => $match]);
             }
         }
         foreach ($dbRefs as $ref) {
             if (! $find($diagramRefs, $ref) && ! $diagramRefs->first(fn ($d) => $d['either'] && $d['reverse'] === $ref['key'])) {
-                $changes[] = $this->change('removed', 'foreign key', $ref['from']['table'], $ref['label']);
+                $changes[] = $this->change('removed', 'foreign key', $ref['from']['table'], $ref['label'], data: ['diagram' => null, 'database' => $ref]);
             }
         }
 
@@ -190,7 +192,7 @@ class Differ
     }
 
     /** A ref as "the foreign key lives on from.column and points at to.column", or null if it has none. */
-    private function foreignKey(array $ref): ?array
+    public function foreignKey(array $ref): ?array
     {
         [$from, $to] = match ($ref['kind'] ?? 'many_to_one') {
             'one_to_many' => [$ref['to'], $ref['from']],
@@ -207,6 +209,7 @@ class Differ
             'reverse' => $id($to, $from),
             'either' => ($ref['kind'] ?? null) === 'one_to_one',
             'label' => "{$from['column']} → {$to['table']}.{$to['column']}",
+            'name' => $ref['name'] ?? null,
             'from' => $from,
             'to' => $to,
             'on_delete' => $this->action($ref['on_delete'] ?? null),
@@ -214,7 +217,8 @@ class Differ
         ];
     }
 
-    private function tables(array $schema, array $ignore): array
+    /** Tables by name, with one-column unique and pk indexes read as column flags. */
+    public function tables(array $schema, array $ignore = []): array
     {
         return collect($schema['tables'] ?? [])
             ->reject(fn ($t) => in_array($t['name'], $ignore, true))
@@ -240,7 +244,7 @@ class Differ
 
                 continue;
             }
-            $indexes[] = ['columns' => $index['columns'], 'unique' => (bool) $index['unique'], 'pk' => (bool) $index['pk']];
+            $indexes[] = ['name' => $index['name'] ?? null, 'columns' => $index['columns'], 'unique' => (bool) $index['unique'], 'pk' => (bool) $index['pk']];
         }
         $table['indexes'] = $indexes;
 
@@ -306,9 +310,9 @@ class Differ
             ->all();
     }
 
-    private function change(string $change, string $object, string $table, string $name, array $details = [], bool $destructive = false): array
+    private function change(string $change, string $object, string $table, string $name, array $details = [], bool $destructive = false, ?array $data = null): array
     {
-        return compact('change', 'object', 'table', 'name', 'details', 'destructive');
+        return compact('change', 'object', 'table', 'name', 'details', 'destructive', 'data');
     }
 
     private function detail(string $field, mixed $database, mixed $diagram): array
