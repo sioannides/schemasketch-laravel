@@ -2,9 +2,9 @@
 
 Versions follow [Semantic Versioning](https://semver.org). While the
 version is 0.x, a minor release (0.1 → 0.2) may change commands or options;
-patch releases (0.1.0 → 0.1.1) only fix things. Add changes under
-"Unreleased" as you make them; `scripts/release.sh` dates that section and
-tags the release.
+patch releases (0.1.0 → 0.1.1) only fix things. Work happens on the `dev`
+branch: add changes under "Unreleased" as you make them. `scripts/release.sh`
+moves `main` to `dev`, dates that section and tags the release.
 
 ## Unreleased
 
