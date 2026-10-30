@@ -1,5 +1,13 @@
 # schemasketch/laravel
 
+[![Latest version](https://img.shields.io/packagist/v/schemasketch/laravel?label=version)](https://packagist.org/packages/schemasketch/laravel)
+[![Tests](https://github.com/sioannides/schemasketch-laravel/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/sioannides/schemasketch-laravel/actions/workflows/tests.yml)
+[![Downloads](https://img.shields.io/packagist/dt/schemasketch/laravel)](https://packagist.org/packages/schemasketch/laravel/stats)
+[![PHP](https://img.shields.io/packagist/dependency-v/schemasketch/laravel/php)](composer.json)
+[![Laravel](https://img.shields.io/badge/laravel-12%20%7C%2013-FF2D20?logo=laravel&logoColor=white)](composer.json)
+[![License](https://img.shields.io/packagist/l/schemasketch/laravel)](LICENSE)
+[![SchemaSketch status](https://img.shields.io/endpoint?url=https%3A%2F%2Fstatus.schemasketch.dev%2Fbadge.json)](https://status.schemasketch.dev)
+
 Turn any Laravel app into a live [SchemaSketch](https://schemasketch.dev)
 diagram, check it for drift, and generate migrations from your diagram.
 

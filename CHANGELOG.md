@@ -8,6 +8,8 @@ moves `main` to `dev`, dates that section and tags the release.
 
 ## Unreleased
 
+- Badges in the README: version, tests, downloads, PHP and Laravel versions, license, service status.
+
 ## 0.1.0 (2026-10-30)
 
 First release.
