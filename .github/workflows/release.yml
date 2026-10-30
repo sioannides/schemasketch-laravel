@@ -1,0 +1,63 @@
+name: release
+
+# Runs for every pushed version tag, whether it came from scripts/release.sh
+# or was made by hand. It refuses tags that aren't a proper next version,
+# then publishes a GitHub release with the changelog section as notes.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  check-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check the version number
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          version="${tag#v}"
+          fail() { echo "::error::$*"; exit 1; }
+
+          [[ "$tag" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] \
+            || fail "$tag isn't a version tag like v1.2.3."
+
+          grep -q '"version"' composer.json \
+            && fail 'composer.json must not have a "version" field; Packagist reads the version from the tag.'
+
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main \
+            || fail "$tag points at a commit that isn't on main."
+
+          # The highest earlier version, and the only versions allowed next.
+          previous=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | grep -vx "$tag" | head -n1)
+          previous=${previous:-v0.0.0}
+          IFS=. read -r M m p <<<"${previous#v}"
+          allowed="$M.$m.$((p + 1)) $M.$((m + 1)).0 $((M + 1)).0.0"
+          [[ " $allowed " == *" $version "* ]] \
+            || fail "$tag doesn't follow $previous. The next version must be one of: ${allowed// /, }."
+
+          grep -q "^## $version\b" CHANGELOG.md \
+            || fail "CHANGELOG.md has no \"## $version\" section."
+
+          echo "$previous -> $tag: OK"
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php: '8.4'
+          extensions: pdo_sqlite
+          coverage: none
+      - run: composer update --prefer-dist --no-interaction --no-progress
+      - run: vendor/bin/pest
+
+      - name: Publish the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          awk -v v="## $version" 'index($0, v)==1 {f=1; next} /^## /{f=0} f' CHANGELOG.md > notes.md
+          gh release create "$GITHUB_REF_NAME" --title "$version" --notes-file notes.md --verify-tag
