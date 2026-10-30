@@ -105,14 +105,12 @@ it('compares enum columns by their values', function () {
         ->and($change['destructive'])->toBeTrue(); // "guest" would go
 });
 
-it('treats an enum as text where Laravel stores enums as text', function () {
+it('reports a text column the diagram turns into an enum, on every driver', function (string $driver) {
     $diagram = schema([tbl('users', [col('role', 'role')])], [], [['id' => null, 'name' => 'role', 'values' => ['a', 'b']]]);
     $database = schema([tbl('users', [col('role', 'varchar(255)')])]);
 
-    expect(diffOf($diagram, $database, 'pgsql'))->toBe([])
-        ->and(diffOf($diagram, $database, 'sqlite'))->toBe([])
-        ->and(diffOf($diagram, $database, 'mysql'))->not->toBe([]);
-});
+    expect(diffOf($diagram, $database, $driver))->not->toBe([]);
+})->with(['mysql', 'pgsql', 'sqlite']);
 
 it('reports flag changes', function () {
     [$change] = diffOf(

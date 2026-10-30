@@ -15,7 +15,8 @@ class DatabaseSchema
 
     public function read(?string $connection, array $ignoreTables = []): array
     {
-        $builder = DB::connection($connection)->getSchemaBuilder();
+        $db = DB::connection($connection);
+        $builder = $db->getSchemaBuilder();
         $tables = collect($builder->getTables($builder->getCurrentSchemaListing()))
             ->pluck('name')
             ->reject(fn ($name) => in_array($name, $ignoreTables, true))
@@ -26,7 +27,12 @@ class DatabaseSchema
         $schema = ['tables' => [], 'refs' => [], 'enums' => [], 'table_groups' => []];
 
         foreach ($tables as $table) {
-            $indexes = $builder->getIndexes($table);
+            $foreignKeys = $builder->getForeignKeys($table);
+            // MySQL backs every foreign key with an index of the same name.
+            // Nobody wrote it, so it stays out of the diagram.
+            $fkNames = array_filter(array_column($foreignKeys, 'name'));
+            $indexes = array_values(array_filter($builder->getIndexes($table), fn ($i) => $i['primary'] || $i['unique']
+                || count($i['columns']) !== 1 || ! in_array($i['name'], $fkNames, true)));
             $primary = collect($indexes)->firstWhere('primary', true)['columns'] ?? [];
             // Column => its one-column unique index's name, kept so `push`
             // can drop that index by its real name.
@@ -35,9 +41,10 @@ class DatabaseSchema
                 ->mapWithKeys(fn ($i) => [$i['columns'][0] => $i['name']])
                 ->all();
 
+            $checkEnums = $this->checkEnums($db, $table);
             $columns = [];
             foreach ($builder->getColumns($table) as $col) {
-                $type = $this->columnType($table, $col, $schema['enums']);
+                $type = $this->columnType($table, $col, $schema['enums'], $checkEnums[$col['name']] ?? null);
                 $columns[] = [
                     'id' => null,
                     'name' => $col['name'],
@@ -71,7 +78,7 @@ class DatabaseSchema
                     ->all(),
             ];
 
-            foreach ($builder->getForeignKeys($table) as $fk) {
+            foreach ($foreignKeys as $fk) {
                 if (count($fk['columns']) !== 1 || count($fk['foreign_columns']) !== 1) {
                     $this->skipped[] = "{$table}(".implode(', ', $fk['columns']).") → {$fk['foreign_table']}: composite foreign key";
 
@@ -93,18 +100,63 @@ class DatabaseSchema
         return $schema;
     }
 
-    // MySQL enum columns become a DBML Enum named "<table>_<column>".
-    private function columnType(string $table, array $col, array &$enums): string
+    // Enum columns become a DBML Enum named "<table>_<column>": MySQL's real
+    // enum type, or a text column with a check constraint listing its values
+    // (how Laravel makes enums on PostgreSQL and SQLite).
+    private function columnType(string $table, array $col, array &$enums, ?array $checkValues = null): string
     {
+        $values = null;
         if (preg_match("/^enum\((.*)\)$/i", $col['type'], $m)) {
-            preg_match_all("/'((?:[^']|'')*)'/", $m[1], $values);
+            $values = $this->quotedValues($m[1]);
+        } elseif ($checkValues !== null && preg_match('/char|text/i', $col['type'] ?: $col['type_name'])) {
+            $values = $checkValues;
+        }
+        if ($values !== null) {
             $name = "{$table}_{$col['name']}";
-            $enums[] = ['id' => null, 'name' => $name, 'values' => array_map(fn ($v) => str_replace("''", "'", $v), $values[1])];
+            $enums[] = ['id' => null, 'name' => $name, 'values' => $values];
 
             return $name;
         }
 
         return DbmlType::fromDatabase($col['type'] ?: $col['type_name']);
+    }
+
+    /** Column => allowed values, from "value in (…)" check constraints. */
+    private function checkEnums($db, string $table): array
+    {
+        $found = [];
+        try {
+            if ($db->getDriverName() === 'pgsql') {
+                $defs = array_column($db->select(
+                    "select pg_get_constraintdef(oid) as def from pg_constraint where contype = 'c' and conrelid = ?::regclass",
+                    ['"'.str_replace('"', '""', $table).'"'],
+                ), 'def');
+                foreach ($defs as $def) {
+                    // CHECK (((status)::text = ANY ((ARRAY['draft'::character varying, …])::text[])))
+                    if (preg_match('/^CHECK \(+"?(\w+)"?\)?(?:::[\w ]+)? = ANY \(+ARRAY\[(.*)\]/', $def, $m)) {
+                        $found[$m[1]] = $this->quotedValues($m[2]);
+                    }
+                }
+            } elseif ($db->getDriverName() === 'sqlite') {
+                $sql = (string) $db->scalar("select sql from sqlite_master where type = 'table' and name = ?", [$table]);
+                // "status" varchar check ("status" in ('draft', 'done'))
+                preg_match_all("/check\s*\(\s*\"?(\w+)\"?\s+in\s*\(((?:\s*'(?:[^']|'')*'\s*,?)+)\)\s*\)/i", $sql, $matches, PREG_SET_ORDER);
+                foreach ($matches as $m) {
+                    $found[$m[1]] = $this->quotedValues($m[2]);
+                }
+            }
+        } catch (\Throwable) {
+            // Unusual setups (no access to catalogs): treat columns as plain text.
+        }
+
+        return $found;
+    }
+
+    private function quotedValues(string $list): array
+    {
+        preg_match_all("/'((?:[^']|'')*)'/", $list, $values);
+
+        return array_map(fn ($v) => str_replace("''", "'", $v), $values[1]);
     }
 
     // Raw defaults differ by driver: 'member' (SQLite, MariaDB), member

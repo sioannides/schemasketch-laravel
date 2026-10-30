@@ -13,6 +13,11 @@ class Differ
 {
     public function __construct(private string $driver = 'sqlite') {}
 
+    public function driver(): string
+    {
+        return $this->driver;
+    }
+
     /**
      * @return list<array{change: string, object: string, table: string, name: string,
      *                    details: list<array{field: string, database: mixed, diagram: mixed}>, destructive: bool,

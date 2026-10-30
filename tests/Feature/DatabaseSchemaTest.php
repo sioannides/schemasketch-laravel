@@ -70,3 +70,25 @@ it('reads foreign keys as relationships', function () {
         'source' => 'foreign key',
     ]]);
 });
+
+it('reads enum columns on every driver, including check-constraint enums', function () {
+    Schema::create('tickets', function (Blueprint $t) {
+        $t->id();
+        $t->enum('status', ['open', 'in review', 'closed'])->default('open');
+        $t->string('plain')->nullable();
+    });
+
+    $schema = readSchema();
+    $tickets = collect($schema['tables'])->firstWhere('name', 'tickets');
+    $columns = collect($tickets['columns'])->keyBy('name');
+
+    expect($columns['status']['type'])->toBe('tickets_status')
+        ->and(collect($schema['enums'])->firstWhere('name', 'tickets_status')['values'])->toBe(['open', 'in review', 'closed'])
+        ->and($columns['plain']['type'])->not->toBe('tickets_plain');
+});
+
+it('leaves out the index MySQL adds for each foreign key', function () {
+    $posts = collect(readSchema()['tables'])->firstWhere('name', 'posts');
+
+    expect(collect($posts['indexes'])->pluck('columns')->all())->toBe([['user_id', 'title']]);
+});

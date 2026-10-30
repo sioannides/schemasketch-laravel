@@ -3,6 +3,7 @@
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
@@ -50,12 +51,13 @@ function targetDiagram(): array
                 col('id', 'bigint', ['pk' => true, 'increment' => true]),
                 col('user_id', 'bigint', ['not_null' => true]),
                 col('title', 'text', ['not_null' => true]),
-                col('status', 'post_status', ['not_null' => true, 'default' => ['value' => 'draft', 'expression' => false]]),
+                col('status', 'varchar(20)', ['not_null' => true, 'default' => ['value' => 'draft', 'expression' => false]]),
             ], ['indexes' => [['name' => null, 'columns' => ['status'], 'unique' => false, 'pk' => false]]]),
             tbl('comments', [
                 col('id', 'bigint', ['pk' => true, 'increment' => true]),
                 col('post_id', 'bigint', ['not_null' => true]),
                 col('body', 'text', ['not_null' => true]),
+                col('state', 'post_status', ['not_null' => true, 'default' => ['value' => 'draft', 'expression' => false]]),
                 col('created_at', 'timestamp'),
                 col('updated_at', 'timestamp'),
             ]),
@@ -97,7 +99,8 @@ it('writes a migration that makes the database match, and rolls back cleanly', f
     expect($php)
         ->toContain("Schema::create('comments'")
         ->toContain('$table->timestamps();')
-        ->toContain("\$table->enum('status', ['draft', 'published'])->default('draft');")
+        ->toContain("\$table->enum('state', ['draft', 'published'])->default('draft');")
+        ->toContain("\$table->foreign('post_id')->references('id')->on('posts');") // inside Schema::create
         ->toContain("\$table->dropColumn('legacy_code');")
         ->toContain('->cascadeOnDelete()');
 
@@ -172,4 +175,34 @@ it('never runs the migration itself', function () {
 
     expect(Schema::hasTable('comments'))->toBeFalse()
         ->and(Schema::hasColumn('users', 'legacy_code'))->toBeTrue();
+});
+
+it('turns a text column into an enum, and back on rollback', function () {
+    $before = (new DatabaseSchema)->read(null);
+    $diagram = ['version' => 1, 'name' => 'Shop', 'syntax_errors' => [], 'warnings' => [], ...$before];
+    $diagram['enums'][] = ['id' => null, 'name' => 'code_kind', 'values' => ['old', 'new']];
+    foreach ($diagram['tables'] as &$table) {
+        if ($table['name'] === 'users') {
+            foreach ($table['columns'] as &$col) {
+                if ($col['name'] === 'legacy_code') {
+                    $col['type'] = 'code_kind';
+                }
+            }
+        }
+    }
+    unset($table, $col);
+    serveDiagram($diagram);
+
+    $this->artisan('schemasketch:push', ['--path' => $this->dir, '--force' => true])->assertSuccessful();
+    $php = writtenMigration($this->dir);
+    DB::getDriverName() === 'pgsql'
+        ? expect($php)->toContain('add constraint "users_legacy_code_check" check ("legacy_code" in (\\\'old\\\', \\\'new\\\'))')
+        : expect($php)->toContain("\$table->enum('legacy_code', ['old', 'new'])->nullable()->change();");
+
+    expect(Artisan::call('migrate', ['--path' => $this->dir, '--realpath' => true]))->toBe(0);
+    expect(Artisan::call('schemasketch:diff'))->toBe(DiffCommand::IN_STEP, Artisan::output());
+
+    expect(Artisan::call('migrate:rollback', ['--path' => $this->dir, '--realpath' => true]))->toBe(0);
+    serveDiagram(['version' => 1, 'name' => 'Before', 'syntax_errors' => [], ...$before]);
+    expect(Artisan::call('schemasketch:diff'))->toBe(DiffCommand::IN_STEP, Artisan::output());
 });

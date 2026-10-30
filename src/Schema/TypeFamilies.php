@@ -20,11 +20,11 @@ class TypeFamilies
         'binary' => ['blob', 'tinyblob', 'mediumblob', 'longblob', 'binary', 'varbinary', 'bytea'],
     ];
 
-    // SQLite and PostgreSQL store these as plain text columns when Laravel
-    // creates them, so a diagram's json/uuid/enum matches a text column there.
+    // SQLite stores these as plain text columns when Laravel creates them,
+    // so a diagram's json or uuid matches a text column there. (Enums are
+    // read from their check constraints, so they're compared properly.)
     private const STORED_AS_TEXT = [
-        'sqlite' => ['json', 'uuid', 'enum'],
-        'pgsql' => ['enum'],
+        'sqlite' => ['json', 'uuid'],
     ];
 
     /** The family of a DBML or database type name: "varchar(100)" → "text". */

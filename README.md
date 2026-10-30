@@ -96,7 +96,16 @@ database match the diagram and whose `down()` puts it back.
   Laravel's `id()` is.
 - Primary key and auto-increment changes on existing columns are listed
   for you to do by hand, not generated.
+- New tables declare their foreign keys inside `Schema::create`.
+- Enums work on every driver. On PostgreSQL, where Laravel can't
+  `->change()` a column to an enum, the migration adds the check
+  constraint itself.
 - Works with a read-only token.
+
+**SQLite note:** when a migration adds or drops a foreign key on an
+existing table, Laravel rebuilds that table on SQLite and the rebuild
+drops enum check constraints. `diff` then rightly reports those columns
+as plain text. MySQL and PostgreSQL aren't affected.
 
 | Option | |
 | --- | --- |

@@ -110,7 +110,8 @@ class PushCommand extends Command
         }
         file_put_contents($file, $migration);
 
-        $this->info('Wrote '.$this->relative($file).'. Review it, then run: php artisan migrate');
+        $migrate = $this->option('path') ? 'php artisan migrate --path='.$this->relative(dirname($file)) : 'php artisan migrate';
+        $this->info('Wrote '.$this->relative($file).". Review it, then run: {$migrate}");
 
         return self::SUCCESS;
     }

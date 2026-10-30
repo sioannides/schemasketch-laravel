@@ -2,6 +2,8 @@
 
 namespace SchemaSketch\Laravel\Dbml;
 
+use SchemaSketch\Laravel\Schema\IndexNames;
+
 // Schema (the schema-document shape) → DBML text that SchemaSketch's parser
 // reads back to the same schema.
 class Writer
@@ -59,7 +61,7 @@ class Writer
                 $col['increment'] ? 'increment' : null,
                 $col['not_null'] ? 'not null' : null,
                 $col['unique'] && ! $col['pk'] ? 'unique' : null,
-                $col['default'] ? 'default: '.$this->defaultValue($col['default']) : null,
+                $col['default'] ? 'default: '.$this->defaultValue($col['default'], $col['type']) : null,
                 $col['note'] ? 'note: '.$this->string($col['note']) : null,
             ]);
             $lines[] = '  '.$this->name($col['name']).' '.$col['type'].($flags ? ' ['.implode(', ', $flags).']' : '');
@@ -79,7 +81,8 @@ class Writer
                 $flags = array_filter([
                     $index['pk'] ? 'pk' : null,
                     $index['unique'] ? 'unique' : null,
-                    ! empty($index['name']) ? 'name: '.$this->string($index['name']) : null,
+                    ($name = IndexNames::custom($index['name'] ?? null, $table['name'], $index['columns'], $index['pk'] ? 'primary' : ($index['unique'] ? 'unique' : 'index')))
+                        ? 'name: '.$this->string($name) : null,
                 ]);
                 $lines[] = '    '.$cols.($flags ? ' ['.implode(', ', $flags).']' : '');
             }
@@ -91,9 +94,14 @@ class Writer
         return implode("\n", $lines);
     }
 
-    private function defaultValue(array $default): string
+    private function defaultValue(array $default, string $type = ''): string
     {
         $value = (string) $default['value'];
+
+        // MySQL keeps booleans as tinyint(1), so their defaults come back as 0/1.
+        if (! $default['expression'] && in_array(strtolower($type), ['boolean', 'bool'], true) && in_array($value, ['0', '1'], true)) {
+            return $value === '1' ? 'true' : 'false';
+        }
 
         if ($default['expression']) {
             return '`'.$value.'`';
