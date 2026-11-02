@@ -8,6 +8,8 @@ moves `main` to `dev`, dates that section and tags the release.
 
 ## Unreleased
 
+## 0.2.0 (2026-11-02)
+
 - `push --models` creates Eloquent models for new tables (fillable, casts,
   soft deletes, UUID keys, relationships) and adds new relationships to your
   existing models, without touching anything else in them.
