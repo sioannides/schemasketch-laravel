@@ -8,6 +8,11 @@ moves `main` to `dev`, dates that section and tags the release.
 
 ## Unreleased
 
+- Renames: tables and columns renamed in SchemaSketch show as "Renamed" in
+  `diff`, and `push` writes `Schema::rename` / `renameColumn` instead of a
+  drop plus an add, so the data stays. Uses the `renamed_from` history the
+  schema endpoint now returns.
+
 ## 0.2.0 (2026-11-02)
 
 - `push --models` creates Eloquent models for new tables (fillable, casts,

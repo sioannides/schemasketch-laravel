@@ -209,3 +209,50 @@ it('ignores model-inferred relationships on the database side', function () {
 it('leaves out ignored tables on both sides', function () {
     expect(diffOf(schema([tbl('users', [col('id')])]), schema([tbl('users', [col('id')]), tbl('migrations', [col('id')])]), 'mysql', ['migrations']))->toBe([]);
 });
+
+it('reports a renamed column instead of a drop and an add', function () {
+    $diagram = schema([tbl('users', [col('id'), col('name', 'varchar', ['renamed_from' => ['fullname']])])]);
+    $database = schema([tbl('users', [col('id'), col('fullname', 'varchar')])]);
+
+    $changes = diffOf($diagram, $database);
+    expect(summary($changes))->toBe(['renamed column users.name'])
+        ->and($changes[0]['details'])->toBe([['field' => 'name', 'database' => 'fullname', 'diagram' => 'name']])
+        ->and($changes[0]['destructive'])->toBeFalse();
+});
+
+it('reports a renamed table, and compares its columns, indexes and foreign keys under the new name', function () {
+    $diagram = schema(
+        [tbl('members', [col('id'), col('email', 'varchar', ['renamed_from' => ['mail']])], ['renamed_from' => ['users']]), tbl('posts', [col('id'), col('user_id')])],
+        [ref('posts.user_id', 'members.id')],
+    );
+    $database = schema(
+        [tbl('users', [col('id'), col('mail', 'varchar')]), tbl('posts', [col('id'), col('user_id')])],
+        [ref('posts.user_id', 'users.id', 'foreign key')],
+    );
+
+    expect(summary(diffOf($diagram, $database)))->toBe(['renamed table members', 'renamed column members.email']);
+});
+
+it('uses the most recent earlier name that still exists', function () {
+    $diagram = schema([tbl('t', [col('c3', 'int', ['renamed_from' => ['c1', 'c2']])])]);
+
+    expect(summary(diffOf($diagram, schema([tbl('t', [col('c2')])]))))->toBe(['renamed column t.c3'])
+        ->and(diffOf($diagram, schema([tbl('t', [col('c1')])]))[0]['details'][0]['database'])->toBe('c1');
+});
+
+it('is not a rename when the old name is still in the diagram, or not in the database', function () {
+    // The old name was reused for a new column: both exist, so no rename.
+    $reused = schema([tbl('t', [col('name', 'varchar', ['renamed_from' => ['title']]), col('title', 'varchar')])]);
+    expect(summary(diffOf($reused, schema([tbl('t', [col('title', 'varchar')])]))))->toBe(['added column t.name']);
+
+    // Already renamed in the database: nothing to do.
+    $done = schema([tbl('t', [col('name', 'varchar', ['renamed_from' => ['title']])])]);
+    expect(diffOf($done, schema([tbl('t', [col('name', 'varchar')])])))->toBe([]);
+});
+
+it('still reports a type change on a renamed column', function () {
+    $diagram = schema([tbl('t', [col('total', 'decimal(10,2)', ['renamed_from' => ['amount']])])]);
+    $database = schema([tbl('t', [col('amount', 'int')])]);
+
+    expect(summary(diffOf($diagram, $database)))->toBe(['renamed column t.total', 'changed column t.total']);
+});

@@ -26,6 +26,21 @@ class Differ
      */
     public function diff(array $diagram, array $database, array $ignoreTables = []): array
     {
+        // Renames first (from the diagram's renamed_from history): the rest
+        // of the comparison then sees the database under its new names, so a
+        // renamed column isn't also reported as a changed index or foreign key.
+        $renames = $this->renames($diagram, $database, $ignoreTables);
+        $database = $this->applyRenames($database, $renames);
+        $renameChanges = [];
+        foreach ($renames['tables'] as $from => $to) {
+            $renameChanges[] = $this->change('renamed', 'table', $to, $to, [$this->detail('name', $from, $to)], data: ['from' => $from, 'to' => $to]);
+        }
+        foreach ($renames['columns'] as $table => $columns) {
+            foreach ($columns as $from => $to) {
+                $renameChanges[] = $this->change('renamed', 'column', $table, $to, [$this->detail('name', $from, $to)], data: ['from' => $from, 'to' => $to]);
+            }
+        }
+
         $diagramTables = $this->tables($diagram, $ignoreTables);
         $dbTables = $this->tables($database, $ignoreTables);
         $diagramEnums = $this->enums($diagram);
@@ -62,7 +77,83 @@ class Differ
             array_keys(array_diff_key($dbTables, $diagramTables)),
         );
 
-        return [...$changes, ...$this->foreignKeys($diagram, $database, $skipTables, $ignoreTables)];
+        return [...$renameChanges, ...$changes, ...$this->foreignKeys($diagram, $database, $skipTables, $ignoreTables)];
+    }
+
+    /**
+     * Tables and columns the diagram renamed: a diagram name that's missing
+     * from the database, whose earlier name (from SchemaSketch's
+     * renamed_from history) is still there and no longer used in the diagram.
+     *
+     * @return array{tables: array<string, string>, columns: array<string, array<string, string>>}
+     *                                                                                             old => new; columns keyed by the table's new name
+     */
+    public function renames(array $diagram, array $database, array $ignoreTables = []): array
+    {
+        $diagramTables = collect($diagram['tables'] ?? [])->reject(fn ($t) => in_array($t['name'], $ignoreTables, true))->keyBy('name');
+        $dbTables = collect($database['tables'] ?? [])->reject(fn ($t) => in_array($t['name'], $ignoreTables, true))->keyBy('name');
+        $renames = ['tables' => [], 'columns' => []];
+
+        foreach ($diagramTables as $name => $table) {
+            if ($dbTables->has($name)) {
+                continue;
+            }
+            // Most recent earlier name first.
+            foreach (array_reverse($table['renamed_from'] ?? []) as $old) {
+                if ($dbTables->has($old) && ! $diagramTables->has($old) && ! isset($renames['tables'][$old])) {
+                    $renames['tables'][$old] = $name;
+                    break;
+                }
+            }
+        }
+
+        foreach ($diagramTables as $name => $table) {
+            $dbName = array_search($name, $renames['tables'], true) ?: $name;
+            if (! $dbTables->has($dbName)) {
+                continue;
+            }
+            $dbColumns = collect($dbTables[$dbName]['columns'])->keyBy('name');
+            $diagramColumns = collect($table['columns'])->keyBy('name');
+            foreach ($table['columns'] as $col) {
+                if ($dbColumns->has($col['name'])) {
+                    continue;
+                }
+                foreach (array_reverse($col['renamed_from'] ?? []) as $old) {
+                    if ($dbColumns->has($old) && ! $diagramColumns->has($old) && ! isset($renames['columns'][$name][$old])) {
+                        $renames['columns'][$name][$old] = $col['name'];
+                        break;
+                    }
+                }
+            }
+        }
+
+        return $renames;
+    }
+
+    /** The database schema with these renames applied, as it will be once they've run. */
+    public function applyRenames(array $database, array $renames): array
+    {
+        $table = fn (string $name) => $renames['tables'][$name] ?? $name;
+        $column = fn (string $t, string $name) => $renames['columns'][$table($t)][$name] ?? $name;
+
+        $database['tables'] = array_map(function ($t) use ($table, $column) {
+            $old = $t['name'];
+            $t['name'] = $table($old);
+            $t['columns'] = array_map(fn ($c) => [...$c, 'name' => $column($old, $c['name'])], $t['columns']);
+            $t['indexes'] = array_map(fn ($i) => [...$i, 'columns' => array_map(fn ($c) => $column($old, $c), $i['columns'])], $t['indexes'] ?? []);
+
+            return $t;
+        }, $database['tables'] ?? []);
+
+        $database['refs'] = array_map(function ($r) use ($table, $column) {
+            foreach (['from', 'to'] as $end) {
+                $r[$end] = ['table' => $table($r[$end]['table']), 'column' => $column($r[$end]['table'], $r[$end]['column'])];
+            }
+
+            return $r;
+        }, $database['refs'] ?? []);
+
+        return $database;
     }
 
     private function columns(string $table, array $diagram, array $database, array $diagramEnums, array $dbEnums): array

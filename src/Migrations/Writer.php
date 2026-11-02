@@ -42,6 +42,10 @@ class Writer
     public function write(array $diagram, array $database, array $changes, array $ignoreTables = []): string
     {
         $this->notes = [];
+        // Renames run first in up() and last in down(); everything else is
+        // written against the database as it is once they've run.
+        $renames = $this->differ->renames($diagram, $database, $ignoreTables);
+        $database = $this->differ->applyRenames($database, $renames);
         $this->diagramTables = $this->differ->tables($diagram, $ignoreTables);
         $this->dbTables = $this->differ->tables($database, $ignoreTables);
         $this->statements = [];
@@ -81,6 +85,7 @@ class Writer
         $alter = $this->alterations($changes);
 
         $up = array_filter([
+            ...$this->renameBlocks($renames, reverse: false),
             $this->foreignKeyBlocks($dropFks, drop: true),
             ...array_map(fn ($t) => $this->create($this->diagramTables[$t], $this->up, $this->unsignedUp, $inlineFks[$t] ?? []), $addedTables),
             ...array_map(fn ($t) => $this->withStatements($t, $this->block($t, $alter[$t]['up']), 'up'), array_keys($alter)),
@@ -93,6 +98,7 @@ class Writer
             ...array_map(fn ($t) => $this->withStatements($t, $this->block($t, $alter[$t]['down']), 'down'), array_keys($alter)),
             ...array_map(fn ($t) => "        Schema::dropIfExists('{$t}');", array_reverse($addedTables)),
             $this->foreignKeyBlocks($dropFks, drop: false),
+            ...$this->renameBlocks($renames, reverse: true),
         ]);
 
         foreach (array_unique([...$this->up->unknownTypes, ...$this->down->unknownTypes]) as $type) {
@@ -232,6 +238,28 @@ class Writer
             $this->statements[$table]['upAfter'][] = $check($this->upEnums[$to['type']]);
             $this->statements[$table]['downBefore'][] = $drop;
         }
+    }
+
+    /** Schema::rename and renameColumn calls; reversed for down(), columns before tables. */
+    private function renameBlocks(array $renames, bool $reverse): array
+    {
+        $q = fn (string $v) => ColumnWriter::quote($v);
+        $tables = array_map(
+            fn ($from, $to) => $reverse ? "        Schema::rename({$q($to)}, {$q($from)});" : "        Schema::rename({$q($from)}, {$q($to)});",
+            array_keys($renames['tables']), $renames['tables'],
+        );
+        $columns = [];
+        foreach ($renames['columns'] as $table => $cols) {
+            $lines = array_map(
+                fn ($from, $to) => $reverse ? "\$table->renameColumn({$q($to)}, {$q($from)});" : "\$table->renameColumn({$q($from)}, {$q($to)});",
+                array_keys($cols), $cols,
+            );
+            $columns[] = $this->block($table, $lines);
+        }
+
+        // up(): rename tables, then their columns (by the new table name).
+        // down(): columns back first, then the tables.
+        return $reverse ? [...$columns, ...array_reverse($tables)] : [...$tables, ...$columns];
     }
 
     private function withStatements(string $table, ?string $block, string $direction): ?string
