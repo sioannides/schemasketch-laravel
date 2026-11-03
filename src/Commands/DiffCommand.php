@@ -8,6 +8,8 @@ use SchemaSketch\Laravel\Api\ApiException;
 use SchemaSketch\Laravel\Api\Client;
 use SchemaSketch\Laravel\Inspect\DatabaseSchema;
 use SchemaSketch\Laravel\Schema\Differ;
+use SchemaSketch\Laravel\Support\Terminal;
+use Symfony\Component\Console\Output\OutputInterface;
 use Throwable;
 
 class DiffCommand extends Command
@@ -62,18 +64,18 @@ class DiffCommand extends Command
         $name = $diagram['name'] ?? $diagramId;
 
         if ($this->option('json')) {
-            $this->line(json_encode([
+            $this->output->writeln(Terminal::json(json_encode([
                 'in_step' => ! $changes,
                 'diagram' => ['id' => $diagramId, 'name' => $name, 'version' => $diagram['version'] ?? null],
                 'driver' => $driver,
                 'changes' => $changes,
-            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)), OutputInterface::OUTPUT_RAW);
 
             return $changes ? self::DIFFERENT : self::IN_STEP;
         }
 
         if (! $changes) {
-            $this->info("The database matches the diagram \"{$name}\".");
+            $this->info('The database matches the diagram "'.Terminal::text($name).'".');
 
             return self::IN_STEP;
         }
@@ -81,7 +83,7 @@ class DiffCommand extends Command
         $this->table(['', 'Table', 'What', 'Details'], array_map(fn ($c) => $this->row($c), $changes));
 
         $destructive = count(array_filter($changes, fn ($c) => $c['destructive']));
-        $this->line(sprintf('%d difference(s) between the diagram "%s" and the database.', count($changes), $name));
+        $this->line(sprintf('%d difference(s) between the diagram "%s" and the database.', count($changes), Terminal::text($name)));
         if ($destructive) {
             $this->line("<fg=red>{$destructive} in red would drop or narrow something if the database were made to match the diagram.</>");
         }
@@ -96,7 +98,7 @@ class DiffCommand extends Command
             fn ($d) => "{$d['field']}: ".$this->value($d['database']).' in the database, '.$this->value($d['diagram']).' in the diagram',
             $change['details'],
         ));
-        $row = [self::LABELS[$change['change']], $change['table'], $what, $details];
+        $row = array_map(fn ($cell) => Terminal::text($cell), [self::LABELS[$change['change']], $change['table'], $what, $details]);
 
         return $change['destructive'] ? array_map(fn ($cell) => $cell === '' ? '' : "<fg=red>{$cell}</>", $row) : $row;
     }
@@ -113,9 +115,9 @@ class DiffCommand extends Command
 
     private function cannotCheck(string $message, array $lines = []): int
     {
-        $this->error($message);
+        $this->error(Terminal::text($message));
         foreach ($lines as $line) {
-            $this->line("  - {$line}");
+            $this->line('  - '.Terminal::text($line));
         }
 
         return self::CANNOT_CHECK;

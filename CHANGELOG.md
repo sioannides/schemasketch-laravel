@@ -9,6 +9,14 @@ dates that section and opens a pull request to `main`; once it is merged,
 
 ## Unreleased
 
+## 0.3.2 (2026-11-03)
+
+- Security: `pull`, `diff` and `push` no longer pass terminal control
+  characters through to your screen. Names, notes and messages from a
+  diagram, the database or the API could otherwise clear the screen, fake
+  output or hide text. Such characters now show as visible escapes like
+  `\x1B`; files are written unchanged, and `diff --json` stays valid JSON.
+
 ## 0.3.1 (2026-11-03)
 
 - Security: `push` now escapes table, column, index and foreign key names
