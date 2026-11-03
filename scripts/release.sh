@@ -125,7 +125,8 @@ if [ "$dry" = 1 ]; then
 else
   existing=$(gh pr list --base main --head dev --state open --json number --jq '.[0].number' 2>/dev/null || true)
   if [ -n "$existing" ]; then
-    gh pr edit "$existing" --title "Release $next" --body "$body" >/dev/null
+    # Through the API: some gh versions fail on `gh pr edit` (projects classic).
+    gh api -X PATCH "repos/{owner}/{repo}/pulls/$existing" -f title="Release $next" -f body="$body" >/dev/null
     url=$(gh pr view "$existing" --json url --jq .url)
   else
     url=$(gh pr create --base main --head dev --title "Release $next" --body "$body")
