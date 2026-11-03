@@ -10,6 +10,8 @@ use SchemaSketch\Laravel\Eloquent\Planner;
 use SchemaSketch\Laravel\Inspect\DatabaseSchema;
 use SchemaSketch\Laravel\Migrations\Writer;
 use SchemaSketch\Laravel\Schema\Differ;
+use SchemaSketch\Laravel\Support\Terminal;
+use Symfony\Component\Console\Formatter\OutputFormatter;
 use Throwable;
 
 class PushCommand extends Command
@@ -36,7 +38,7 @@ class PushCommand extends Command
         try {
             $diagram = Client::fromConfig()->schema($diagramId);
         } catch (ApiException $e) {
-            $this->error($e->getMessage());
+            $this->error(Terminal::text($e->getMessage()));
 
             return self::FAILURE;
         }
@@ -49,7 +51,7 @@ class PushCommand extends Command
         if ($problems) {
             $this->error('The diagram has errors, so no migration was made. Fix these in SchemaSketch first:');
             foreach ($problems as $problem) {
-                $this->line("  - {$problem}");
+                $this->line('  - '.Terminal::text($problem));
             }
 
             return self::FAILURE;
@@ -60,7 +62,7 @@ class PushCommand extends Command
             $database = (new DatabaseSchema)->read($connection, []);
             $driver = DB::connection($connection)->getDriverName();
         } catch (Throwable $e) {
-            $this->error("Couldn't read the database: {$e->getMessage()}");
+            $this->error("Couldn't read the database: ".Terminal::text($e->getMessage()));
 
             return self::FAILURE;
         }
@@ -71,7 +73,7 @@ class PushCommand extends Command
         $name = $diagram['name'] ?? $diagramId;
 
         if (! $changes) {
-            $this->info("The database already matches the diagram \"{$name}\". No migration needed.");
+            $this->info('The database already matches the diagram "'.Terminal::text($name).'". No migration needed.');
 
             return self::SUCCESS;
         }
@@ -80,17 +82,17 @@ class PushCommand extends Command
         $migration = $writer->write($diagram, $database, $changes, $ignore);
         $file = rtrim($this->option('path') ?: database_path('migrations'), '/\\').'/'.now()->format('Y_m_d_His').'_schemasketch_sync.php';
 
-        foreach (explode("\n", rtrim($migration)) as $line) {
-            $this->line($line);
+        foreach (explode("\n", rtrim(Terminal::clean($migration))) as $line) {
+            $this->line(OutputFormatter::escape($line));
         }
         $this->newLine();
         foreach ($writer->notes as $note) {
-            $this->warn($note);
+            $this->warn(Terminal::text($note));
         }
 
         $destructive = array_values(array_filter($changes, fn ($c) => $c['destructive']));
         if (! $this->option('force')) {
-            if (! $this->confirm('Write this migration to '.$this->relative($file).'?', true)) {
+            if (! $this->confirm('Write this migration to '.Terminal::text($this->relative($file)).'?', true)) {
                 $this->line('Nothing written.');
 
                 return self::FAILURE;
@@ -98,7 +100,7 @@ class PushCommand extends Command
             if ($destructive) {
                 $this->line('<fg=red>This migration drops or narrows:</>');
                 foreach ($destructive as $c) {
-                    $this->line("<fg=red>  - {$c['table']}".($c['object'] === 'table' ? ' (the whole table)' : ": {$c['object']} {$c['name']}").'</>');
+                    $this->line('<fg=red>  - '.Terminal::text($c['table']).($c['object'] === 'table' ? ' (the whole table)' : ': '.Terminal::text("{$c['object']} {$c['name']}")).'</>');
                 }
                 if (! $this->confirm('Data in these will be lost when the migration runs. Write it anyway?', false)) {
                     $this->line('Nothing written.');
@@ -114,7 +116,7 @@ class PushCommand extends Command
         file_put_contents($file, $migration);
 
         $migrate = $this->option('path') ? 'php artisan migrate --path='.$this->relative(dirname($file)) : 'php artisan migrate';
-        $this->info('Wrote '.$this->relative($file).". Review it, then run: {$migrate}");
+        $this->info('Wrote '.Terminal::text($this->relative($file)).'. Review it, then run: '.Terminal::text($migrate));
 
         if ($this->option('models') || $this->option('factories')) {
             return $this->writeModels($diagram, $changes, $ignore);
@@ -135,7 +137,7 @@ class PushCommand extends Command
 
         $this->newLine();
         foreach ($planner->notes as $note) {
-            $this->warn($note);
+            $this->warn(Terminal::text($note));
         }
         if (! $files) {
             $this->line('No model or factory changes needed.');
@@ -144,10 +146,10 @@ class PushCommand extends Command
         }
 
         foreach ($files as $f) {
-            $this->line(($f['action'] === 'create' ? 'Create ' : 'Update ').$this->relative($f['path'])." ({$f['summary']})");
+            $this->line(($f['action'] === 'create' ? 'Create ' : 'Update ').Terminal::text($this->relative($f['path'])).' ('.Terminal::text($f['summary']).')');
             if ($this->output->isVerbose() || $f['action'] === 'create') {
-                foreach (explode("\n", rtrim($f['content'])) as $line) {
-                    $this->line('    '.$line);
+                foreach (explode("\n", rtrim(Terminal::clean($f['content']))) as $line) {
+                    $this->line('    '.OutputFormatter::escape($line));
                 }
             }
         }
