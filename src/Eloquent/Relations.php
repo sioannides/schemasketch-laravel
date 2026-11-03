@@ -2,6 +2,7 @@
 
 namespace SchemaSketch\Laravel\Eloquent;
 
+use SchemaSketch\Laravel\Migrations\ColumnWriter;
 use SchemaSketch\Laravel\Schema\Differ;
 
 // Works out every Eloquent relationship a schema implies, on both sides:
@@ -45,20 +46,20 @@ class Relations
                 $column = collect($tables[$child]['columns'])->firstWhere('name', $fk['from']['column']);
                 $via = [$child, $fk['from']['column']];
                 $this->add($child, Naming::belongsTo($fk['from']['column']), 'BelongsTo',
-                    "\$this->belongsTo({$this->modelName($parent)}::class, '{$fk['from']['column']}', '{$fk['to']['column']}')", $via);
+                    "\$this->belongsTo({$this->modelName($parent)}::class, ".ColumnWriter::quote($fk['from']['column']).', '.ColumnWriter::quote($fk['to']['column']).')', $via);
 
                 $oneToOne = $column && ($column['unique'] || $column['pk']);
                 $this->add($parent, $oneToOne ? Naming::hasOne($child) : Naming::hasMany($child), $oneToOne ? 'HasOne' : 'HasMany',
-                    '$this->'.($oneToOne ? 'hasOne' : 'hasMany')."({$this->modelName($child)}::class, '{$fk['from']['column']}', '{$fk['to']['column']}')", $via);
+                    '$this->'.($oneToOne ? 'hasOne' : 'hasMany')."({$this->modelName($child)}::class, ".ColumnWriter::quote($fk['from']['column']).', '.ColumnWriter::quote($fk['to']['column']).')', $via);
             }
         }
 
         foreach ($this->pivots as $pivot) {
             [$a, $b] = $fksByTable[$pivot];
             $this->add($a['to']['table'], Naming::hasMany($b['to']['table']), 'BelongsToMany',
-                "\$this->belongsToMany({$this->modelName($b['to']['table'])}::class, '{$pivot}', '{$a['from']['column']}', '{$b['from']['column']}')", [$pivot, null]);
+                "\$this->belongsToMany({$this->modelName($b['to']['table'])}::class, ".implode(', ', array_map(ColumnWriter::quote(...), [$pivot, $a['from']['column'], $b['from']['column']])).')', [$pivot, null]);
             $this->add($b['to']['table'], Naming::hasMany($a['to']['table']), 'BelongsToMany',
-                "\$this->belongsToMany({$this->modelName($a['to']['table'])}::class, '{$pivot}', '{$b['from']['column']}', '{$a['from']['column']}')", [$pivot, null]);
+                "\$this->belongsToMany({$this->modelName($a['to']['table'])}::class, ".implode(', ', array_map(ColumnWriter::quote(...), [$pivot, $b['from']['column'], $a['from']['column']])).')', [$pivot, null]);
         }
     }
 

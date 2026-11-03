@@ -2,6 +2,7 @@
 
 namespace SchemaSketch\Laravel\Eloquent;
 
+use SchemaSketch\Laravel\Migrations\ColumnWriter;
 use SchemaSketch\Laravel\Schema\TypeFamilies;
 
 // A model factory for one table: fake data chosen by column name first
@@ -58,13 +59,13 @@ class FactoryWriter
                     $value = 'null';
                 } else {
                     // No factory for that model: use a row that already exists.
-                    $value = "{$other}::query()->inRandomOrder()->value('{$fk['to']['column']}')";
+                    $value = "{$other}::query()->inRandomOrder()->value(".ColumnWriter::quote($fk['to']['column']).')';
                 }
             } else {
                 $value = $this->fake($col, $enums);
                 $usesHash = $usesHash || str_starts_with($value, 'Hash::');
             }
-            $lines[] = "            '{$col['name']}' => {$value},";
+            $lines[] = '            '.ColumnWriter::quote($col['name'])." => {$value},";
         }
 
         $imports = ["{$this->modelNamespace}\\{$model}", 'Illuminate\\Database\\Eloquent\\Factories\\Factory'];
