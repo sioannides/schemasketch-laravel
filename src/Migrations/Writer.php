@@ -90,13 +90,13 @@ class Writer
             ...array_map(fn ($t) => $this->create($this->diagramTables[$t], $this->up, $this->unsignedUp, $inlineFks[$t] ?? []), $addedTables),
             ...array_map(fn ($t) => $this->withStatements($t, $this->block($t, $alter[$t]['up']), 'up'), array_keys($alter)),
             $this->foreignKeyBlocks($addFks, drop: false),
-            ...array_map(fn ($t) => "        Schema::dropIfExists('{$t}');", $removedTables),
+            ...array_map(fn ($t) => '        Schema::dropIfExists('.ColumnWriter::quote($t).');', $removedTables),
         ]);
         $down = array_filter([
             ...array_map(fn ($t) => $this->create($this->dbTables[$t], $this->down, $this->unsignedDown), $removedTables),
             $this->foreignKeyBlocks($addFks, drop: true),
             ...array_map(fn ($t) => $this->withStatements($t, $this->block($t, $alter[$t]['down']), 'down'), array_keys($alter)),
-            ...array_map(fn ($t) => "        Schema::dropIfExists('{$t}');", array_reverse($addedTables)),
+            ...array_map(fn ($t) => '        Schema::dropIfExists('.ColumnWriter::quote($t).');', array_reverse($addedTables)),
             $this->foreignKeyBlocks($dropFks, drop: false),
             ...$this->renameBlocks($renames, reverse: true),
         ]);
@@ -126,11 +126,11 @@ class Writer
             $t = $c['table'];
             match ([$c['object'], $c['change']]) {
                 ['column', 'added'] => $add($t, '1', $this->up->write($this->column($this->diagramTables, $t, $c['name']), $this->unsignedUp["{$t}.{$c['name']}"] ?? false),
-                    "\$table->dropColumn('{$c['name']}');"),
+                    '$table->dropColumn('.ColumnWriter::quote($c['name']).');'),
                 ['column', 'changed'] => $this->changeColumn($t, $c, $add),
                 ['index', 'removed'] => $add($t, '3', $this->dropIndex($c['data']['database'], $t), $this->addIndex($c['data']['database'], $t)),
                 ['index', 'added'] => $add($t, '4', $this->addIndex($c['data']['diagram'], $t), $this->dropIndex($c['data']['diagram'], $t)),
-                ['column', 'removed'] => $add($t, '5', "\$table->dropColumn('{$c['name']}');",
+                ['column', 'removed'] => $add($t, '5', '$table->dropColumn('.ColumnWriter::quote($c['name']).');',
                     $this->down->write($this->column($this->dbTables, $t, $c['name']), $this->unsignedDown["{$t}.{$c['name']}"] ?? false)),
                 default => null,
             };
@@ -164,10 +164,11 @@ class Writer
         }
         if (in_array('unique', $fields, true)) {
             $index = $from['unique_index'] ?? null;
+            $qName = ColumnWriter::quote($name);
             $to['unique']
-                ? $add($table, '4', "\$table->unique('{$name}');", "\$table->dropUnique(['{$name}']);")
-                : $add($table, '3', '$table->dropUnique('.($index ? "'{$index}'" : "['{$name}']").');',
-                    "\$table->unique('{$name}'".($index ? ", '{$index}'" : '').');');
+                ? $add($table, '4', "\$table->unique({$qName});", "\$table->dropUnique([{$qName}]);")
+                : $add($table, '3', '$table->dropUnique('.($index ? ColumnWriter::quote($index) : "[{$qName}]").');',
+                    "\$table->unique({$qName}".($index ? ', '.ColumnWriter::quote($index) : '').');');
         }
         foreach (array_intersect($fields, ['primary key', 'increment']) as $field) {
             $this->notes[] = "{$table}.{$name}: the {$field} setting differs. Changing it needs care with existing data, so it isn't in the migration; add it by hand if you want it.";
@@ -219,7 +220,7 @@ class Writer
     {
         $name = $to['name'];
         $constraint = "{$table}_{$name}_check";
-        $drop = "DB::statement('alter table \"{$table}\" drop constraint if exists \"{$constraint}\"');";
+        $drop = 'DB::statement('.ColumnWriter::quote("alter table \"{$table}\" drop constraint if exists \"{$constraint}\"").');';
         $check = fn (array $values) => 'DB::statement('.ColumnWriter::quote(
             "alter table \"{$table}\" add constraint \"{$constraint}\" check (\"{$name}\" in ("
             .implode(', ', array_map(fn ($v) => "'".str_replace("'", "''", $v)."'", $values)).'))'
@@ -299,7 +300,7 @@ class Writer
             $lines[] = $this->addForeign($fk);
         }
 
-        return "        Schema::create('{$table['name']}', function (Blueprint \$table) {\n"
+        return '        Schema::create('.ColumnWriter::quote($table['name']).", function (Blueprint \$table) {\n"
             .implode("\n", array_map(fn ($l) => "            {$l}", $lines))."\n        });";
     }
 
@@ -309,7 +310,7 @@ class Writer
             return null;
         }
 
-        return "        Schema::table('{$table}', function (Blueprint \$table) {\n"
+        return '        Schema::table('.ColumnWriter::quote($table).", function (Blueprint \$table) {\n"
             .implode("\n", array_map(fn ($l) => "            {$l}", $lines))."\n        });";
     }
 
@@ -324,8 +325,8 @@ class Writer
     private function addForeign(array $fk): string
     {
         $name = IndexNames::custom($fk['name'], $fk['from']['table'], [$fk['from']['column']], 'foreign');
-        $line = "\$table->foreign('{$fk['from']['column']}'".($name ? ', '.ColumnWriter::quote($name) : '').')'
-            ."->references('{$fk['to']['column']}')->on('{$fk['to']['table']}')";
+        $line = '$table->foreign('.ColumnWriter::quote($fk['from']['column']).($name ? ', '.ColumnWriter::quote($name) : '').')'
+            .'->references('.ColumnWriter::quote($fk['to']['column']).')->on('.ColumnWriter::quote($fk['to']['table']).')';
 
         return $line.$this->action($fk['on_delete'], 'Delete').$this->action($fk['on_update'], 'Update').';';
     }
@@ -334,7 +335,7 @@ class Writer
     {
         $name = IndexNames::custom($fk['name'], $fk['from']['table'], [$fk['from']['column']], 'foreign');
 
-        return '$table->dropForeign('.($name ? ColumnWriter::quote($name) : "['{$fk['from']['column']}']").');';
+        return '$table->dropForeign('.($name ? ColumnWriter::quote($name) : '['.ColumnWriter::quote($fk['from']['column']).']').');';
     }
 
     private function action(?string $action, string $kind): string

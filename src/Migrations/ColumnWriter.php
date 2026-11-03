@@ -101,7 +101,8 @@ class ColumnWriter
         if ($method === null) {
             $this->unknownTypes[] = $col['type'];
 
-            return "\$table->string({$name}) /* SchemaSketch type \"".str_replace('*/', '', $col['type']).'": change if needed */';
+            // Only plain type characters survive, so the text cannot close the comment or leave it.
+            return "\$table->string({$name}) /* SchemaSketch type \"".preg_replace('/[^A-Za-z0-9_ (),.]/', '', $col['type']).'": change if needed */';
         }
 
         $size = TypeFamilies::size($type);
