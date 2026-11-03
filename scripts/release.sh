@@ -77,7 +77,11 @@ fi
 [ "$(git rev-parse --abbrev-ref HEAD)" = dev ] || fail "switch to the dev branch first."
 [ "$(git rev-parse dev)" = "$(git rev-parse origin/dev)" ] || fail "dev differs from origin/dev; pull or push it first."
 git merge-base --is-ancestor origin/main dev || fail "main has commits dev doesn't. Run: git merge origin/main (on dev) first."
-[ "$(git rev-parse origin/main)" != "$(git rev-parse dev)" ] || fail "dev has nothing main doesn't; nothing new to release."
+# Work may already be on main (merged in its own pull request); what counts
+# is whether anything has changed since the last release tag.
+if [ "$latest" != v0.0.0 ] && [ -z "$(git rev-list "$latest"..dev)" ]; then
+  fail "nothing has changed since $latest; nothing new to release."
+fi
 
 IFS=. read -r major minor patch <<<"${latest#v}"
 case "$mode" in
@@ -96,7 +100,7 @@ grep -q '^## Unreleased' CHANGELOG.md || fail 'CHANGELOG.md has no "## Unrelease
 notes=$(awk '/^## Unreleased/{f=1;next} /^## /{f=0} f' CHANGELOG.md | sed '/^[[:space:]]*$/d')
 [ -n "$notes" ] || fail 'the "## Unreleased" section in CHANGELOG.md is empty. Say what changed.'
 
-echo "Preparing $latest -> v$next ($mode), $(git rev-list --count origin/main..dev) commit(s) on dev"
+echo "Preparing $latest -> v$next ($mode), $(git rev-list --count "$latest"..dev 2>/dev/null || git rev-list --count dev) commit(s) since $latest"
 echo "$notes" | sed 's/^/  /'
 
 run vendor/bin/pest --compact
