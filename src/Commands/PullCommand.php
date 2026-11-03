@@ -9,6 +9,8 @@ use SchemaSketch\Laravel\Dbml\Writer;
 use SchemaSketch\Laravel\Inspect\DatabaseSchema;
 use SchemaSketch\Laravel\Inspect\ModelRelations;
 use SchemaSketch\Laravel\Schema\Merger;
+use SchemaSketch\Laravel\Support\Terminal;
+use Symfony\Component\Console\Formatter\OutputFormatter;
 
 class PullCommand extends Command
 {
@@ -45,7 +47,7 @@ class PullCommand extends Command
                 if (! empty($diagram['syntax_errors'])) {
                     $this->error("The diagram's DBML has errors, so merging into it could lose content. Fix these in SchemaSketch first:");
                     foreach ($diagram['syntax_errors'] as $error) {
-                        $this->line("  - {$error}");
+                        $this->line('  - '.Terminal::text($error));
                     }
 
                     return self::FAILURE;
@@ -59,11 +61,12 @@ class PullCommand extends Command
             if ($localOnly) {
                 if ($file = $this->option('output')) {
                     file_put_contents($file, $dbml);
-                    $this->info("Saved the DBML to {$file}.");
+                    $this->info('Saved the DBML to '.Terminal::text($file).'.');
                 }
                 if ($this->option('dry-run')) {
-                    foreach (explode("\n", rtrim($dbml, "\n")) as $line) {
-                        $this->line($line);
+                    // The file gets the raw DBML; only the interactive display is neutralized.
+                    foreach (explode("\n", rtrim(Terminal::clean($dbml), "\n")) as $line) {
+                        $this->line(OutputFormatter::escape($line));
                     }
                 }
 
@@ -74,7 +77,7 @@ class PullCommand extends Command
                 ? $this->updateDiagram($client, $diagramId, $diagram, $merger->summary, $dbml)
                 : $this->createDiagram($client, $dbml);
         } catch (ApiException $e) {
-            $this->error($e->getMessage());
+            $this->error(Terminal::text($e->getMessage()));
 
             return self::FAILURE;
         }
@@ -95,7 +98,7 @@ class PullCommand extends Command
         if ($skipped && $this->output->isVerbose()) {
             $this->warn('Left out:');
             foreach ($skipped as $reason) {
-                $this->line("  - {$reason}");
+                $this->line('  - '.Terminal::text($reason));
             }
         } elseif ($skipped) {
             $this->line(count($skipped).' relationship(s) left out (run with -v to see which and why).');
@@ -109,9 +112,9 @@ class PullCommand extends Command
         $name = $this->option('name') ?: config('app.name', 'Laravel');
         $created = $client->create($name, $dbml);
 
-        $this->info("Created the diagram \"{$name}\": ".$client->diagramUrl($created['id']));
+        $this->info('Created the diagram "'.Terminal::text($name).'": '.Terminal::text($client->diagramUrl($created['id'])));
         $this->line('Link this app to it by adding to your .env:');
-        $this->line("  SCHEMASKETCH_DIAGRAM={$created['id']}");
+        $this->line('  SCHEMASKETCH_DIAGRAM='.Terminal::text($created['id']));
 
         return self::SUCCESS;
     }
@@ -119,19 +122,19 @@ class PullCommand extends Command
     private function updateDiagram(Client $client, string $id, array $diagram, array $summary, string $dbml): int
     {
         $name = $diagram['name'] ?? $id;
-        $this->line('Updated from the database: '.($summary['updated'] ? implode(', ', $summary['updated']) : 'none'));
-        $this->line('Added from the database: '.($summary['added'] ? implode(', ', $summary['added']) : 'none'));
-        $this->line('Kept from the diagram: '.($summary['kept'] ? implode(', ', $summary['kept']) : 'none'));
+        $this->line('Updated from the database: '.($summary['updated'] ? Terminal::text(implode(', ', $summary['updated'])) : 'none'));
+        $this->line('Added from the database: '.($summary['added'] ? Terminal::text(implode(', ', $summary['added'])) : 'none'));
+        $this->line('Kept from the diagram: '.($summary['kept'] ? Terminal::text(implode(', ', $summary['kept'])) : 'none'));
         $this->line("Notes, colors and table groups are kept; the diagram's DBML text is rewritten, so its // comments aren't. The previous version stays in the diagram's History.");
 
-        if (! $this->option('force') && ! $this->confirm("Update the diagram \"{$name}\"?")) {
+        if (! $this->option('force') && ! $this->confirm('Update the diagram "'.Terminal::text($name).'"?')) {
             $this->line('Nothing changed.');
 
             return self::FAILURE;
         }
 
         $client->update($id, $dbml, (int) $diagram['version']);
-        $this->info('Diagram updated: '.$client->diagramUrl($id));
+        $this->info('Diagram updated: '.Terminal::text($client->diagramUrl($id)));
 
         return self::SUCCESS;
     }
