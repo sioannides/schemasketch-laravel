@@ -3,6 +3,7 @@
 namespace SchemaSketch\Laravel\Eloquent;
 
 use Illuminate\Support\Str;
+use SchemaSketch\Laravel\Migrations\ColumnWriter;
 use SchemaSketch\Laravel\Schema\TypeFamilies;
 
 // A new Eloquent model for one table: $fillable, casts, soft deletes, UUID
@@ -48,10 +49,10 @@ class ModelWriter
 
         $settings = [];
         if ($table['name'] !== Str::snake(Str::pluralStudly($class))) {
-            $settings[] = "    protected \$table = '{$table['name']}';";
+            $settings[] = '    protected $table = '.ColumnWriter::quote($table['name']).';';
         }
         if ($singlePk && $singlePk['name'] !== 'id') {
-            $settings[] = "    protected \$primaryKey = '{$singlePk['name']}';";
+            $settings[] = '    protected $primaryKey = '.ColumnWriter::quote($singlePk['name']).';';
         }
         if ($singlePk && ! $singlePk['increment'] && ! $uuidKey) {
             $settings[] = '    public $incrementing = false;';
@@ -68,7 +69,7 @@ class ModelWriter
 
         $fillable = collect($table['columns'])
             ->reject(fn ($c) => $c['pk'] || in_array($c['name'], self::TIMESTAMPS, true))
-            ->map(fn ($c) => "'{$c['name']}'");
+            ->map(fn ($c) => ColumnWriter::quote($c['name']));
         if ($fillable->isNotEmpty()) {
             $body[] = "    protected \$fillable = [\n        ".$fillable->implode(",\n        ").",\n    ];";
         }
@@ -78,7 +79,7 @@ class ModelWriter
             ->mapWithKeys(fn ($c) => [$c['name'] => $this->cast($c, $enums)])
             ->filter();
         if ($casts->isNotEmpty()) {
-            $lines = $casts->map(fn ($cast, $name) => "            '{$name}' => '{$cast}',")->implode("\n");
+            $lines = $casts->map(fn ($cast, $name) => '            '.ColumnWriter::quote((string) $name)." => '{$cast}',")->implode("\n");
             $body[] = "    protected function casts(): array\n    {\n        return [\n{$lines}\n        ];\n    }";
         }
 

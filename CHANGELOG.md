@@ -9,6 +9,15 @@ dates that section and opens a pull request to `main`; once it is merged,
 
 ## Unreleased
 
+## 0.3.1 (2026-11-03)
+
+- Security: `push` now escapes table, column, index and foreign key names
+  everywhere it writes them into migrations, models and factories, and turns
+  them into plain PHP names for classes and methods. Before, someone who
+  could edit your diagram could put a name built to inject PHP code into
+  the files `push` writes, which would run when you migrate or load them.
+  Update if other people can edit your diagrams.
+
 ## 0.3.0 (2026-11-03)
 
 - Renames: tables and columns renamed in SchemaSketch show as "Renamed" in
