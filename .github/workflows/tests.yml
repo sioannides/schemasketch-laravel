@@ -4,6 +4,13 @@ on:
   push:
     branches: [main, dev]
   pull_request:
+  schedule:
+    # Weekly, so a newly published advisory for a dependency shows up even
+    # when nothing is being pushed.
+    - cron: '0 6 * * 1'
+
+permissions:
+  contents: read
 
 jobs:
   tests:
@@ -19,8 +26,10 @@ jobs:
             laravel: '13.*'
     name: PHP ${{ matrix.php }} / Laravel ${{ matrix.laravel }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: shivammathur/setup-php@v2
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
         with:
           php: ${{ matrix.php }}
           extensions: pdo_sqlite
@@ -59,8 +68,10 @@ jobs:
     env:
       DB_CONNECTION: ${{ matrix.db }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: shivammathur/setup-php@v2
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
         with:
           php: '8.4'
           extensions: pdo_mysql, pdo_pgsql
@@ -71,10 +82,27 @@ jobs:
   style:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: shivammathur/setup-php@v2
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
         with:
           php: '8.4'
           coverage: none
       - run: composer update --prefer-dist --no-interaction --no-progress
       - run: vendor/bin/pint --test
+
+  audit:
+    # Fails if any dependency, at the versions a fresh install picks, has a
+    # known security advisory.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php: '8.4'
+          coverage: none
+      - run: composer update --prefer-dist --no-interaction --no-progress
+      - run: composer audit
