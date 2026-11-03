@@ -208,3 +208,49 @@ it('turns a text column into an enum, and back on rollback', function () {
     serveDiagram(['version' => 1, 'name' => 'Before', 'syntax_errors' => [], ...$before]);
     expect(Artisan::call('schemasketch:diff'))->toBe(DiffCommand::IN_STEP, Artisan::output());
 });
+
+it('renames a table and a column instead of dropping them, keeping the data', function () {
+    DB::table('users')->insert(['email' => 'kept@example.test', 'legacy_code' => 'ABC']);
+    $before = (new DatabaseSchema)->read(null);
+
+    // The diagram after: users is now members, legacy_code is now code.
+    $diagram = ['version' => 1, 'name' => 'Shop', 'syntax_errors' => [], 'warnings' => [], ...$before];
+    foreach ($diagram['tables'] as &$table) {
+        if ($table['name'] === 'users') {
+            $table['name'] = 'members';
+            $table['renamed_from'] = ['users'];
+            foreach ($table['columns'] as &$col) {
+                if ($col['name'] === 'legacy_code') {
+                    $col['name'] = 'code';
+                    $col['renamed_from'] = ['legacy_code'];
+                }
+            }
+        }
+    }
+    unset($table, $col);
+    foreach ($diagram['refs'] as &$ref) {
+        foreach (['from', 'to'] as $end) {
+            $ref[$end]['table'] = $ref[$end]['table'] === 'users' ? 'members' : $ref[$end]['table'];
+        }
+    }
+    unset($ref);
+    serveDiagram($diagram);
+
+    expect(Artisan::call('schemasketch:diff'))->toBe(DiffCommand::DIFFERENT);
+    expect(Artisan::output())->toContain('Renamed')->not->toContain('In the database only');
+
+    $this->artisan('schemasketch:push', ['--path' => $this->dir, '--force' => true])->assertSuccessful();
+    expect(writtenMigration($this->dir))
+        ->toContain("Schema::rename('users', 'members');")
+        ->toContain("\$table->renameColumn('legacy_code', 'code');")
+        ->not->toContain('dropColumn')->not->toContain('dropIfExists');
+
+    expect(Artisan::call('migrate', ['--path' => $this->dir, '--realpath' => true]))->toBe(0);
+    expect(DB::table('members')->value('code'))->toBe('ABC');           // the data came along
+    expect(Artisan::call('schemasketch:diff'))->toBe(DiffCommand::IN_STEP, Artisan::output());
+
+    expect(Artisan::call('migrate:rollback', ['--path' => $this->dir, '--realpath' => true]))->toBe(0);
+    expect(DB::table('users')->value('legacy_code'))->toBe('ABC');
+    serveDiagram(['version' => 1, 'name' => 'Before', 'syntax_errors' => [], ...$before]);
+    expect(Artisan::call('schemasketch:diff'))->toBe(DiffCommand::IN_STEP, Artisan::output());
+});

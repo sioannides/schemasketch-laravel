@@ -63,7 +63,8 @@ Compares the linked diagram with your database and lists what differs:
 ```
 
 Rows in red would drop or narrow something if the database were made to
-match the diagram. Types are compared by family (`int`/`bigint`/`int8` are
+match the diagram. Tables and columns renamed in SchemaSketch show as
+**Renamed**, not as one removed and one added. Types are compared by family (`int`/`bigint`/`int8` are
 all integers), so driver spellings don't show up as differences.
 
 | Exit code | Meaning |
@@ -105,6 +106,9 @@ database match the diagram and whose `down()` puts it back.
   Laravel's `id()` is.
 - Primary key and auto-increment changes on existing columns are listed
   for you to do by hand, not generated.
+- Renamed tables and columns become `Schema::rename` and `renameColumn`, so
+  their data stays. SchemaSketch remembers renames made on the canvas or by
+  an AI through MCP, and recognises typed ones when it's sure.
 - New tables declare their foreign keys inside `Schema::create`.
 - Enums work on every driver. On PostgreSQL, where Laravel can't
   `->change()` a column to an enum, the migration adds the check

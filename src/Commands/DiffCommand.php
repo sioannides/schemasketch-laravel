@@ -30,6 +30,7 @@ class DiffCommand extends Command
         'added' => 'In the diagram only',
         'removed' => 'In the database only',
         'changed' => 'Different',
+        'renamed' => 'Renamed',
     ];
 
     public function handle(): int
