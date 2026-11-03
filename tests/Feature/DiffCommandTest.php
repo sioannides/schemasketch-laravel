@@ -128,3 +128,16 @@ it('exits 2 when it cannot check', function (Closure $setUp, string $message) {
     'service down' => [fn () => Http::fake([DIFF_API.'/*' => Http::response([], 503)]), 'Try again'],
     'broken DBML' => [fn () => fakeDiagram(matchingDiagram(['syntax_errors' => ['Table x missing closing }']])), 'Table x missing closing }'],
 ]);
+
+it('never prints escape sequences from the diagram to the terminal', function () {
+    $evil = "Shop\e[2J\e]8;;https://evil.test\e\\click\e]8;;\e\\";
+    fakeDiagram(matchingDiagram(['name' => $evil]));
+    Artisan::call('schemasketch:diff');
+    expect(Artisan::output())->not->toContain("\e")->toContain('Shop\x1B[2J');
+
+    fakeDiagram(matchingDiagram(['name' => $evil, 'tables' => []]));
+    Artisan::call('schemasketch:diff', ['--json' => true]);
+    $out = Artisan::output();
+    expect($out)->not->toContain("\e")
+        ->and(json_decode($out, true)['diagram']['name'])->toBe($evil);
+});
