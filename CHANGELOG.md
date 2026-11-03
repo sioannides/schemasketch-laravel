@@ -9,6 +9,8 @@ dates that section and opens a pull request to `main`; once it is merged,
 
 ## Unreleased
 
+## 0.3.0 (2026-11-03)
+
 - Renames: tables and columns renamed in SchemaSketch show as "Renamed" in
   `diff`, and `push` writes `Schema::rename` / `renameColumn` instead of a
   drop plus an add, so the data stays. Uses the `renamed_from` history the
