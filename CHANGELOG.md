@@ -9,6 +9,8 @@ dates that section and opens a pull request to `main`; once it is merged,
 
 ## Unreleased
 
+## 0.3.2 (2026-11-03)
+
 - Security: `pull`, `diff` and `push` no longer pass terminal control
   characters through to your screen. Names, notes and messages from a
   diagram, the database or the API could otherwise clear the screen, fake
