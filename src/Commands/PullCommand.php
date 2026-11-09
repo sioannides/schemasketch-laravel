@@ -5,15 +5,16 @@ namespace SchemaSketch\Laravel\Commands;
 use Illuminate\Console\Command;
 use SchemaSketch\Laravel\Api\ApiException;
 use SchemaSketch\Laravel\Api\Client;
+use SchemaSketch\Laravel\Commands\Concerns\ReadsDatabase;
 use SchemaSketch\Laravel\Dbml\Writer;
-use SchemaSketch\Laravel\Inspect\DatabaseSchema;
-use SchemaSketch\Laravel\Inspect\ModelRelations;
 use SchemaSketch\Laravel\Schema\Merger;
 use SchemaSketch\Laravel\Support\Terminal;
 use Symfony\Component\Console\Formatter\OutputFormatter;
 
 class PullCommand extends Command
 {
+    use ReadsDatabase;
+
     protected $signature = 'schemasketch:pull
         {--diagram= : The diagram to update (defaults to SCHEMASKETCH_DIAGRAM)}
         {--name= : Name for a new diagram (defaults to your app name)}
@@ -81,30 +82,6 @@ class PullCommand extends Command
 
             return self::FAILURE;
         }
-    }
-
-    private function readDatabase(): array
-    {
-        $reader = new DatabaseSchema;
-        $schema = $reader->read($this->option('connection'), config('schemasketch.ignore_tables', []));
-        $skipped = $reader->skipped;
-
-        if (! $this->option('no-models')) {
-            $relations = new ModelRelations(config('schemasketch.models_path') ?: app_path('Models'));
-            $schema = $relations->addTo($schema);
-            $skipped = [...$skipped, ...$relations->skipped];
-        }
-
-        if ($skipped && $this->output->isVerbose()) {
-            $this->warn('Left out:');
-            foreach ($skipped as $reason) {
-                $this->line('  - '.Terminal::text($reason));
-            }
-        } elseif ($skipped) {
-            $this->line(count($skipped).' relationship(s) left out (run with -v to see which and why).');
-        }
-
-        return $schema;
     }
 
     private function createDiagram(Client $client, string $dbml): int

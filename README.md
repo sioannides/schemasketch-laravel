@@ -152,6 +152,49 @@ factories go to `app/Models` and `database/factories`; change `models_path`,
 `config/schemasketch.php` if yours live elsewhere.
 
 
+## `php artisan schemasketch:export`
+
+Draws your database as a [Mermaid](https://mermaid.js.org) or
+[PlantUML](https://plantuml.com) diagram. It works offline from the
+database, like `pull --output`: no token, no network, schema only.
+
+```bash
+php artisan schemasketch:export mermaid --output=README.md
+```
+
+In a Markdown file it updates only the part between these two lines, and
+adds them at the end the first time:
+
+```markdown
+<!-- schemasketch:start -->
+<!-- schemasketch:end -->
+```
+
+GitHub and GitLab draw Mermaid inside Markdown, so the README shows a live
+ER diagram. Running it again with no schema change leaves the file exactly
+as it was. To fail CI when someone forgets to update it:
+
+```yaml
+- run: php artisan migrate --force
+- run: php artisan schemasketch:export mermaid --output=README.md --check
+```
+
+Foreign keys are solid lines; relationships only your Eloquent models know
+about are dashed. A `decimal(8,2)` column shows as `decimal` with `(8,2)`
+beside it, because Mermaid doesn't accept commas in types.
+
+| Option | |
+| --- | --- |
+| `--output=README.md` | Update the marked block in a Markdown file |
+| `--output=database.mmd` | Write a whole Mermaid file (`.mmd` or `.mermaid`) |
+| `--output=database.puml` | Write a whole PlantUML file (`.puml` or `.plantuml`) |
+| `--check` | Change nothing; exit `1` if `--output` is out of date |
+| `--connection=pgsql` | Read this database connection |
+| `--no-models` | Leave out relationships found only in your models |
+
+Without `--output` it prints the diagram. PlantUML in a Markdown file uses a
+` ```plantuml ` block, which GitLab draws; GitHub needs an add-on for it.
+
 ## License
 
 MIT

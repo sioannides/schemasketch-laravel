@@ -9,6 +9,14 @@ dates that section and opens a pull request to `main`; once it is merged,
 
 ## Unreleased
 
+## 0.4.0 (2026-11-09)
+
+- New `schemasketch:export mermaid|plantuml`: draws your database as a
+  Mermaid or PlantUML diagram, offline (no token, no network). With
+  `--output=README.md` it keeps a diagram up to date inside a marked block
+  of a Markdown file and leaves the rest alone; `--check` fails CI when the
+  file is out of date. `.mmd`, `.mermaid` and `.puml` files are written whole.
+
 ## 0.3.2 (2026-11-03)
 
 - Security: `pull`, `diff` and `push` no longer pass terminal control
