@@ -12,7 +12,8 @@ Turn any Laravel app into a live [SchemaSketch](https://schemasketch.dev)
 diagram, check it for drift, and generate migrations from your diagram.
 
 > Early release (0.x): commands and options may still change before 1.0.
-> Full guide: [schemasketch.dev/laravel-package](https://schemasketch.dev/laravel-package)
+> Full guide: [schemasketch.dev/laravel-package](https://schemasketch.dev/laravel-package) ·
+> Video tutorials: [youtube.com/@SchemaSketch](https://www.youtube.com/@SchemaSketch)
 
 ```bash
 composer require schemasketch/laravel --dev
