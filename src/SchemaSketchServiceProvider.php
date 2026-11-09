@@ -22,6 +22,7 @@ class SchemaSketchServiceProvider extends ServiceProvider
                 Commands\PullCommand::class,
                 Commands\DiffCommand::class,
                 Commands\PushCommand::class,
+                Commands\ExportCommand::class,
             ]);
         }
     }
