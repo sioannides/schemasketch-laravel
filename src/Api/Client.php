@@ -39,6 +39,12 @@ class Client
         return $this->send(fn ($http) => $http->get('/me'));
     }
 
+    /** The diagram itself, including its DBML text exactly as written. */
+    public function diagram(string $diagramId): array
+    {
+        return $this->send(fn ($http) => $http->get('/diagrams/'.rawurlencode($diagramId)));
+    }
+
     public function schema(string $diagramId): array
     {
         return $this->send(fn ($http) => $http->get('/diagrams/'.rawurlencode($diagramId).'/schema'));

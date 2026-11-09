@@ -9,6 +9,17 @@ dates that section and opens a pull request to `main`; once it is merged,
 
 ## Unreleased
 
+## 0.5.0 (2026-11-09)
+
+- **Breaking:** `export` now saves the linked SchemaSketch diagram instead
+  of reading the local database. It needs a token (read-only is enough) and
+  a diagram (`SCHEMASKETCH_DIAGRAM` or `--diagram`). New format: `export dbml`
+  saves the diagram's DBML exactly as written. Mermaid, PlantUML, Markdown
+  blocks and `--check` work as before; `--connection` and `--no-models` are gone.
+- **Breaking:** `pull --output` and `pull --dry-run` are removed. They now stop
+  with a message pointing to `export dbml`, change nothing and exit with `1`.
+  `pull` only sends the database to SchemaSketch.
+
 ## 0.4.0 (2026-11-09)
 
 - New `schemasketch:export mermaid|plantuml`: draws your database as a

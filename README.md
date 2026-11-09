@@ -41,13 +41,15 @@ have no foreign key. Schema only, never your data.
 
 | Option | |
 | --- | --- |
-| `--dry-run` | Print the DBML, upload nothing |
-| `--output=schema.dbml` | Save the DBML to a file, upload nothing |
 | `--diagram=ID` | Use this diagram instead of `SCHEMASKETCH_DIAGRAM` |
 | `--name="Shop"` | Name for a new diagram (default: your app name) |
 | `--connection=pgsql` | Read this database connection |
 | `--no-models` | Skip relationships from Eloquent models |
 | `-v` | List relationships left out (polymorphic, composite keys) and why |
+
+`pull` only sends. To save or print the diagram, use
+[`export`](#php-artisan-schemasketchexport) (`--dry-run` and `--output`
+moved there in 0.5).
 
 ## `php artisan schemasketch:diff`
 
@@ -154,11 +156,13 @@ factories go to `app/Models` and `database/factories`; change `models_path`,
 
 ## `php artisan schemasketch:export`
 
-Draws your database as a [Mermaid](https://mermaid.js.org) or
-[PlantUML](https://plantuml.com) diagram. It works offline from the
-database, like `pull --output`: no token, no network, schema only.
+Saves the linked SchemaSketch diagram as a local file: its DBML exactly as
+written, or a [Mermaid](https://mermaid.js.org) or
+[PlantUML](https://plantuml.com) drawing of it. Without `--output` it prints
+it. It only reads, so a **read-only** token is enough.
 
 ```bash
+php artisan schemasketch:export dbml --output=schema.dbml
 php artisan schemasketch:export mermaid --output=README.md
 ```
 
@@ -170,30 +174,32 @@ adds them at the end the first time:
 <!-- schemasketch:end -->
 ```
 
-GitHub and GitLab draw Mermaid inside Markdown, so the README shows a live
-ER diagram. Running it again with no schema change leaves the file exactly
-as it was. To fail CI when someone forgets to update it:
+GitHub and GitLab draw Mermaid inside Markdown, so the README shows the
+diagram. Running it again with no change leaves the file exactly as it was.
+To fail CI when someone forgets to update it:
 
 ```yaml
-- run: php artisan migrate --force
 - run: php artisan schemasketch:export mermaid --output=README.md --check
+  env:
+    SCHEMASKETCH_TOKEN: ${{ secrets.SCHEMASKETCH_TOKEN }}
+    SCHEMASKETCH_DIAGRAM: ${{ vars.SCHEMASKETCH_DIAGRAM }}
 ```
 
-Foreign keys are solid lines; relationships only your Eloquent models know
-about are dashed. A `decimal(8,2)` column shows as `decimal` with `(8,2)`
-beside it, because Mermaid doesn't accept commas in types.
+To show what's in your database rather than what's in the diagram, run
+`pull` first. A `decimal(8,2)` column shows in Mermaid as `decimal` with
+`(8,2)` beside it, because Mermaid doesn't accept commas in types.
 
 | Option | |
 | --- | --- |
-| `--output=README.md` | Update the marked block in a Markdown file |
-| `--output=database.mmd` | Write a whole Mermaid file (`.mmd` or `.mermaid`) |
-| `--output=database.puml` | Write a whole PlantUML file (`.puml` or `.plantuml`) |
+| `--output=schema.dbml` | Save the DBML (`dbml` only) |
+| `--output=README.md` | Update the marked block in a Markdown file (`mermaid`, `plantuml`) |
+| `--output=schema.mmd` | Write a whole Mermaid file (`.mmd` or `.mermaid`) |
+| `--output=schema.puml` | Write a whole PlantUML file (`.puml` or `.plantuml`) |
 | `--check` | Change nothing; exit `1` if `--output` is out of date |
-| `--connection=pgsql` | Read this database connection |
-| `--no-models` | Leave out relationships found only in your models |
+| `--diagram=ID` | Use this diagram instead of `SCHEMASKETCH_DIAGRAM` |
 
-Without `--output` it prints the diagram. PlantUML in a Markdown file uses a
-` ```plantuml ` block, which GitLab draws; GitHub needs an add-on for it.
+PlantUML in a Markdown file uses a ` ```plantuml ` block, which GitLab draws;
+GitHub needs an add-on for it.
 
 ## License
 

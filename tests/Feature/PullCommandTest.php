@@ -29,34 +29,28 @@ function me(string $access = 'read-write'): array
     return [API.'/me' => Http::response(['email' => 'a@b.c', 'token_access' => $access])];
 }
 
-it('prints DBML on --dry-run and uploads nothing', function () {
+it('points --output and --dry-run to export, changing nothing', function (string $option, string $hint) {
     Http::fake();
 
-    $this->artisan('schemasketch:pull', ['--dry-run' => true])
-        ->expectsOutputToContain('Table users {')
-        ->expectsOutputToContain('Ref: posts.user_id > users.id') // from the models
-        ->assertSuccessful();
+    $this->artisan('schemasketch:pull', [$option => $option === '--output' ? 'schema.dbml' : true])
+        ->expectsOutputToContain('pull no longer')
+        ->expectsOutputToContain($hint)
+        ->assertFailed();
 
     Http::assertNothingSent();
-});
+    expect(file_exists('schema.dbml'))->toBeFalse();
+})->with([
+    ['--output', 'php artisan schemasketch:export dbml --output=schema.dbml'],
+    ['--dry-run', 'php artisan schemasketch:export dbml'],
+]);
 
 it('skips model relationships with --no-models', function () {
-    Http::fake();
+    Http::fake([...me(), API.'/diagrams' => Http::response(['id' => 'new-id'], 201)]);
 
-    $this->artisan('schemasketch:pull', ['--dry-run' => true, '--no-models' => true])
-        ->doesntExpectOutputToContain('Ref:')
-        ->assertSuccessful();
-});
+    $this->artisan('schemasketch:pull', ['--no-models' => true])->assertSuccessful();
 
-it('saves DBML to a file with --output', function () {
-    Http::fake();
-    $file = sys_get_temp_dir().'/schemasketch-pull-test.dbml';
-
-    $this->artisan('schemasketch:pull', ['--output' => $file])->assertSuccessful();
-
-    expect(file_get_contents($file))->toContain('Table posts {');
-    unlink($file);
-    Http::assertNothingSent();
+    Http::assertSent(fn (Request $r) => $r->method() === 'POST' && str_ends_with($r->url(), '/diagrams')
+        && str_contains($r['dbml_source'], 'Table posts {') && ! str_contains($r['dbml_source'], 'Ref:'));
 });
 
 it('creates a new diagram when none is linked', function () {
