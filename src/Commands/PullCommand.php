@@ -9,7 +9,6 @@ use SchemaSketch\Laravel\Commands\Concerns\ReadsDatabase;
 use SchemaSketch\Laravel\Dbml\Writer;
 use SchemaSketch\Laravel\Schema\Merger;
 use SchemaSketch\Laravel\Support\Terminal;
-use Symfony\Component\Console\Formatter\OutputFormatter;
 
 class PullCommand extends Command
 {
@@ -19,8 +18,8 @@ class PullCommand extends Command
         {--diagram= : The diagram to update (defaults to SCHEMASKETCH_DIAGRAM)}
         {--name= : Name for a new diagram (defaults to your app name)}
         {--connection= : The database connection to read (defaults to your default connection)}
-        {--dry-run : Print the DBML instead of uploading it}
-        {--output= : Save the DBML to this file instead of uploading it}
+        {--dry-run : Removed in 0.5: use schemasketch:export dbml}
+        {--output= : Removed in 0.5: use schemasketch:export dbml --output=FILE}
         {--no-models : Don\'t add relationships found in your Eloquent models}
         {--force : Don\'t ask before updating a diagram}';
 
@@ -28,13 +27,23 @@ class PullCommand extends Command
 
     public function handle(): int
     {
+        // pull only sends; files and previews moved to export in 0.5.
+        if ($this->option('output') !== null || $this->option('dry-run')) {
+            $this->error($this->option('output') !== null ? 'pull no longer writes files.' : 'pull no longer prints DBML.');
+            $this->line($this->option('output') !== null
+                ? 'To save the diagram as a file, run: php artisan schemasketch:export dbml --output=schema.dbml'
+                : 'To see the diagram as DBML, run: php artisan schemasketch:export dbml (it prints when you don\'t give --output)');
+            $this->line('Run pull first if the diagram should include your latest database changes. Nothing was changed.');
+
+            return self::FAILURE;
+        }
+
         $client = Client::fromConfig();
         $diagramId = $this->option('diagram') ?: config('schemasketch.diagram');
-        $localOnly = $this->option('dry-run') || $this->option('output');
 
         try {
             // Uploading needs a read & edit token; check before doing any work.
-            if (! $localOnly && ($client->me()['token_access'] ?? 'read-write') === 'read-only') {
+            if (($client->me()['token_access'] ?? 'read-write') === 'read-only') {
                 $this->error('This SchemaSketch token is read-only, so pull can\'t change diagrams. Create a "Read & edit" token in "Connect AI agent".');
 
                 return self::FAILURE;
@@ -43,7 +52,7 @@ class PullCommand extends Command
             $schema = $this->readDatabase();
 
             $diagram = null;
-            if ($diagramId && ($client->hasToken() || ! $localOnly)) {
+            if ($diagramId) {
                 $diagram = $client->schema($diagramId);
                 if (! empty($diagram['syntax_errors'])) {
                     $this->error("The diagram's DBML has errors, so merging into it could lose content. Fix these in SchemaSketch first:");
@@ -58,21 +67,6 @@ class PullCommand extends Command
             }
 
             $dbml = (new Writer)->write($schema);
-
-            if ($localOnly) {
-                if ($file = $this->option('output')) {
-                    file_put_contents($file, $dbml);
-                    $this->info('Saved the DBML to '.Terminal::text($file).'.');
-                }
-                if ($this->option('dry-run')) {
-                    // The file gets the raw DBML; only the interactive display is neutralized.
-                    foreach (explode("\n", rtrim(Terminal::clean($dbml), "\n")) as $line) {
-                        $this->line(OutputFormatter::escape($line));
-                    }
-                }
-
-                return self::SUCCESS;
-            }
 
             return $diagram
                 ? $this->updateDiagram($client, $diagramId, $diagram, $merger->summary, $dbml)
