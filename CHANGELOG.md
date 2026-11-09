@@ -9,6 +9,8 @@ dates that section and opens a pull request to `main`; once it is merged,
 
 ## Unreleased
 
+## 0.5.0 (2026-11-09)
+
 - **Breaking:** `export` now saves the linked SchemaSketch diagram instead
   of reading the local database. It needs a token (read-only is enough) and
   a diagram (`SCHEMASKETCH_DIAGRAM` or `--diagram`). New format: `export dbml`
