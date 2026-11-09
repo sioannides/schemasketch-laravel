@@ -9,6 +9,8 @@ dates that section and opens a pull request to `main`; once it is merged,
 
 ## Unreleased
 
+## 0.4.0 (2026-11-09)
+
 - New `schemasketch:export mermaid|plantuml`: draws your database as a
   Mermaid or PlantUML diagram, offline (no token, no network). With
   `--output=README.md` it keeps a diagram up to date inside a marked block
