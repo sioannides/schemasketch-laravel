@@ -9,6 +9,11 @@ dates that section and opens a pull request to `main`; once it is merged,
 
 ## Unreleased
 
+## 0.6.1 (2026-11-10)
+
+- Maintenance: `symfony/finder` 8.1.11 in the package's own development
+  lockfile (Dependabot). Nothing changes for apps that install the package.
+
 ## 0.6.0 (2026-11-10)
 
 - New `diff --markdown`: prints the differences as a Markdown table (risky
