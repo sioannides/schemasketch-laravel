@@ -90,8 +90,26 @@ choice there:
 | Option | |
 | --- | --- |
 | `--json` | Print the differences as JSON for scripts |
+| `--markdown` | Print the differences as a Markdown table, for a pull request comment |
 | `--diagram=ID` | Use this diagram instead of `SCHEMASKETCH_DIAGRAM` |
 | `--connection=pgsql` | Read this database connection |
+
+To comment on a pull request when the schema drifts (GitHub Actions; the
+`diff` step fails on differences, so the comment step runs only then):
+
+```yaml
+- run: php artisan schemasketch:diff --markdown > schema-diff.md
+  env:
+    SCHEMASKETCH_TOKEN: ${{ secrets.SCHEMASKETCH_TOKEN }}
+    SCHEMASKETCH_DIAGRAM: ${{ vars.SCHEMASKETCH_DIAGRAM }}
+- if: failure()
+  run: gh pr comment ${{ github.event.pull_request.number }} --body-file schema-diff.md
+  env:
+    GH_TOKEN: ${{ github.token }}
+```
+
+Table and column names are escaped, so a `|` or HTML in a name can't break
+the table or add markup to the comment.
 
 ## `php artisan schemasketch:push`
 

@@ -9,6 +9,9 @@ dates that section and opens a pull request to `main`; once it is merged,
 
 ## Unreleased
 
+- New `diff --markdown`: prints the differences as a Markdown table (risky
+  rows marked ⚠️) for a pull request comment. Same exit codes as `diff`.
+  Names are escaped so they can't break the table or add HTML.
 - New `schemasketch:status`: checks the token (and whether it's read-only),
   the linked diagram, the database and whether they're in step, with a fix
   for anything missing. Changes nothing. Exit codes match `diff` (0 in step,
