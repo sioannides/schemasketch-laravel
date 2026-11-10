@@ -141,3 +141,48 @@ it('never prints escape sequences from the diagram to the terminal', function ()
     expect($out)->not->toContain("\e")
         ->and(json_decode($out, true)['diagram']['name'])->toBe($evil);
 });
+
+it('prints Markdown for a pull request comment when in step', function () {
+    fakeDiagram(matchingDiagram());
+
+    expect(Artisan::call('schemasketch:diff', ['--markdown' => true]))->toBe(DiffCommand::IN_STEP)
+        ->and(trim(Artisan::output()))->toBe('✅ The database matches the diagram "Shop".');
+});
+
+it('prints the differences as a Markdown table, marking what would drop something', function () {
+    $diagram = matchingDiagram();
+    $diagram['tables'][] = tbl('invoices', [col('id', 'bigint', ['pk' => true])]);
+    array_pop($diagram['tables'][0]['columns']); // the diagram has no "active": dropping it loses data
+    fakeDiagram($diagram);
+
+    expect(Artisan::call('schemasketch:diff', ['--markdown' => true]))->toBe(DiffCommand::DIFFERENT);
+
+    $out = Artisan::output();
+    expect($out)
+        ->toContain("### SchemaSketch: 2 difference(s) between the diagram \"Shop\" and the database\n")
+        ->toContain("| | Change | Table | What | Details |\n| --- | --- | --- | --- | --- |\n")
+        ->toContain('| | In the diagram only | invoices | table | |')
+        ->toContain('| ⚠️ | In the database only | users | column active |')
+        ->toContain('⚠️ 1 change would drop or narrow something if the database were made to match the diagram.')
+        ->not->toContain('<fg=');
+});
+
+it('escapes names so they cannot break the table or add HTML', function () {
+    $diagram = matchingDiagram();
+    $diagram['tables'][] = tbl("evil|<b>x</b>\nrow", [col('id', 'bigint', ['pk' => true])]);
+    fakeDiagram($diagram);
+
+    Artisan::call('schemasketch:diff', ['--markdown' => true]);
+
+    expect(Artisan::output())->toContain('evil\|&lt;b&gt;x&lt;/b&gt; row')->not->toContain('<b>');
+});
+
+it('refuses --json and --markdown together', function () {
+    Http::fake();
+
+    $this->artisan('schemasketch:diff', ['--json' => true, '--markdown' => true])
+        ->expectsOutputToContain('Use either --json or --markdown')
+        ->assertExitCode(DiffCommand::CANNOT_CHECK);
+
+    Http::assertNothingSent();
+});

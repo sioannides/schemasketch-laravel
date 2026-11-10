@@ -24,7 +24,8 @@ class DiffCommand extends Command
     protected $signature = 'schemasketch:diff
         {--diagram= : The diagram to compare with (defaults to SCHEMASKETCH_DIAGRAM)}
         {--connection= : The database connection to read (defaults to your default connection)}
-        {--json : Print the differences as JSON}';
+        {--json : Print the differences as JSON}
+        {--markdown : Print the differences as a Markdown table (for pull request comments)}';
 
     protected $description = 'Compare a SchemaSketch diagram with your database (exit code 0 = in step, 1 = different, 2 = could not check)';
 
@@ -37,6 +38,10 @@ class DiffCommand extends Command
 
     public function handle(): int
     {
+        if ($this->option('json') && $this->option('markdown')) {
+            return $this->cannotCheck('Use either --json or --markdown, not both.');
+        }
+
         $diagramId = $this->option('diagram') ?: config('schemasketch.diagram');
         if (! $diagramId) {
             return $this->cannotCheck('No diagram to compare with. Pass --diagram=ID or set SCHEMASKETCH_DIAGRAM in your .env.');
@@ -74,6 +79,10 @@ class DiffCommand extends Command
             return $changes ? self::DIFFERENT : self::IN_STEP;
         }
 
+        if ($this->option('markdown')) {
+            return $this->markdown($changes, $name);
+        }
+
         if (! $changes) {
             $this->info('The database matches the diagram "'.Terminal::text($name).'".');
 
@@ -91,14 +100,64 @@ class DiffCommand extends Command
         return self::DIFFERENT;
     }
 
-    private function row(array $change): array
+    /**
+     * Markdown for a pull request comment: a heading, a table with risky rows
+     * marked, and a summary. Names are escaped so a "|" or HTML in a table or
+     * column name can't break the table or end up as markup in the comment.
+     */
+    private function markdown(array $changes, string $name): int
+    {
+        $name = $this->md($name);
+        if (! $changes) {
+            $this->output->writeln("✅ The database matches the diagram \"{$name}\".", OutputInterface::OUTPUT_RAW);
+
+            return self::IN_STEP;
+        }
+
+        $lines = [
+            sprintf('### SchemaSketch: %d difference(s) between the diagram "%s" and the database', count($changes), $name),
+            '',
+            '| | Change | Table | What | Details |',
+            '| --- | --- | --- | --- | --- |',
+        ];
+        foreach ($changes as $change) {
+            $cells = [$change['destructive'] ? '⚠️' : '', ...array_map(fn ($c) => $this->md($c), $this->cells($change))];
+            $lines[] = '|'.implode('|', array_map(fn ($c) => $c === '' ? ' ' : " {$c} ", $cells)).'|';
+        }
+
+        $destructive = count(array_filter($changes, fn ($c) => $c['destructive']));
+        if ($destructive) {
+            $lines[] = '';
+            $lines[] = sprintf('⚠️ %d %s would drop or narrow something if the database were made to match the diagram.', $destructive, $destructive === 1 ? 'change' : 'changes');
+        }
+
+        $this->output->writeln(implode("\n", $lines), OutputInterface::OUTPUT_RAW);
+
+        return self::DIFFERENT;
+    }
+
+    private function md(string $text): string
+    {
+        $text = Terminal::clean(str_replace(["\r\n", "\n", "\r"], ' ', $text));
+
+        return str_replace(['\\', '|', '&', '<', '>'], ['\\\\', '\\|', '&amp;', '&lt;', '&gt;'], $text);
+    }
+
+    /** Change label, table, what and details as plain text. */
+    private function cells(array $change): array
     {
         $what = $change['object'] === 'table' ? 'table' : "{$change['object']} {$change['name']}";
         $details = implode('; ', array_map(
             fn ($d) => "{$d['field']}: ".$this->value($d['database']).' in the database, '.$this->value($d['diagram']).' in the diagram',
             $change['details'],
         ));
-        $row = array_map(fn ($cell) => Terminal::text($cell), [self::LABELS[$change['change']], $change['table'], $what, $details]);
+
+        return [self::LABELS[$change['change']], $change['table'], $what, $details];
+    }
+
+    private function row(array $change): array
+    {
+        $row = array_map(fn ($cell) => Terminal::text($cell), $this->cells($change));
 
         return $change['destructive'] ? array_map(fn ($cell) => $cell === '' ? '' : "<fg=red>{$cell}</>", $row) : $row;
     }

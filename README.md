@@ -90,8 +90,26 @@ choice there:
 | Option | |
 | --- | --- |
 | `--json` | Print the differences as JSON for scripts |
+| `--markdown` | Print the differences as a Markdown table, for a pull request comment |
 | `--diagram=ID` | Use this diagram instead of `SCHEMASKETCH_DIAGRAM` |
 | `--connection=pgsql` | Read this database connection |
+
+To comment on a pull request when the schema drifts (GitHub Actions; the
+`diff` step fails on differences, so the comment step runs only then):
+
+```yaml
+- run: php artisan schemasketch:diff --markdown > schema-diff.md
+  env:
+    SCHEMASKETCH_TOKEN: ${{ secrets.SCHEMASKETCH_TOKEN }}
+    SCHEMASKETCH_DIAGRAM: ${{ vars.SCHEMASKETCH_DIAGRAM }}
+- if: failure()
+  run: gh pr comment ${{ github.event.pull_request.number }} --body-file schema-diff.md
+  env:
+    GH_TOKEN: ${{ github.token }}
+```
+
+Table and column names are escaped, so a `|` or HTML in a name can't break
+the table or add markup to the comment.
 
 ## `php artisan schemasketch:push`
 
@@ -153,6 +171,26 @@ factories go to `app/Models` and `database/factories`; change `models_path`,
 `models_namespace`, `factories_path` and `factories_namespace` in
 `config/schemasketch.php` if yours live elsewhere.
 
+
+## `php artisan schemasketch:status`
+
+One look at whether everything is set up. Changes nothing; a read-only token
+is enough.
+
+```
+SchemaSketch status
+  · API       https://schemasketch.dev/api
+  ✓ Token     you@example.com, read & edit
+  ✓ Diagram   "Shop" (version 12)
+              https://schemasketch.dev/app?diagram=fdc310b4-…
+  ✓ Database  mysql (mysql), 14 tables
+  ✓ In step   The database matches the diagram.
+```
+
+Anything missing gets a ✗ and what to do about it, such as an expired token
+or no `SCHEMASKETCH_DIAGRAM`. Exit codes match `diff`: `0` in step, `1` set
+up but different, `2` something isn't set up. Takes `--diagram=ID` and
+`--connection=`.
 
 ## `php artisan schemasketch:export`
 
