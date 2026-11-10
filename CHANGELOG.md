@@ -9,6 +9,8 @@ dates that section and opens a pull request to `main`; once it is merged,
 
 ## Unreleased
 
+## 0.6.0 (2026-11-10)
+
 - New `diff --markdown`: prints the differences as a Markdown table (risky
   rows marked ⚠️) for a pull request comment. Same exit codes as `diff`.
   Names are escaped so they can't break the table or add HTML.
