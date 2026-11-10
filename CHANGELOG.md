@@ -9,6 +9,11 @@ dates that section and opens a pull request to `main`; once it is merged,
 
 ## Unreleased
 
+- New `schemasketch:status`: checks the token (and whether it's read-only),
+  the linked diagram, the database and whether they're in step, with a fix
+  for anything missing. Changes nothing. Exit codes match `diff` (0 in step,
+  1 different, 2 not set up).
+
 ## 0.5.0 (2026-11-09)
 
 - **Breaking:** `export` now saves the linked SchemaSketch diagram instead

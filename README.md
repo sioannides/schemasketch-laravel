@@ -154,6 +154,26 @@ factories go to `app/Models` and `database/factories`; change `models_path`,
 `config/schemasketch.php` if yours live elsewhere.
 
 
+## `php artisan schemasketch:status`
+
+One look at whether everything is set up. Changes nothing; a read-only token
+is enough.
+
+```
+SchemaSketch status
+  · API       https://schemasketch.dev/api
+  ✓ Token     you@example.com, read & edit
+  ✓ Diagram   "Shop" (version 12)
+              https://schemasketch.dev/app?diagram=fdc310b4-…
+  ✓ Database  mysql (mysql), 14 tables
+  ✓ In step   The database matches the diagram.
+```
+
+Anything missing gets a ✗ and what to do about it, such as an expired token
+or no `SCHEMASKETCH_DIAGRAM`. Exit codes match `diff`: `0` in step, `1` set
+up but different, `2` something isn't set up. Takes `--diagram=ID` and
+`--connection=`.
+
 ## `php artisan schemasketch:export`
 
 Saves the linked SchemaSketch diagram as a local file: its DBML exactly as
