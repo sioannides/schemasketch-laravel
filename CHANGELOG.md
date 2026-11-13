@@ -9,6 +9,8 @@ dates that section and opens a pull request to `main`; once it is merged,
 
 ## Unreleased
 
+## 0.7.0 (2026-11-13)
+
 - Requests to SchemaSketch now say they come from this package and which
   command sent them (`User-Agent: schemasketch-laravel/<version>`,
   `X-SchemaSketch-Action: schemasketch:diff`), so SchemaSketch can count
