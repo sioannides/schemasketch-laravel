@@ -64,7 +64,7 @@ class ExportCommand extends Command
         }
 
         try {
-            $content = $this->render($format, Client::fromConfig(), $diagramId);
+            $content = $this->render($format, Client::fromConfig($this->getName()), $diagramId);
         } catch (ApiException $e) {
             $this->error(Terminal::text($e->getMessage()));
 

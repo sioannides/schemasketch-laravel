@@ -2,6 +2,7 @@
 
 namespace SchemaSketch\Laravel\Api;
 
+use Composer\InstalledVersions;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
@@ -9,13 +10,41 @@ use Illuminate\Support\Facades\Http;
 // The SchemaSketch API calls this package makes.
 // Errors come back as ApiException with a message meant for the person
 // running the command; the token is never part of one.
+//
+// Every request says it comes from this package and which command sent it
+// (User-Agent "schemasketch-laravel/<version>", X-SchemaSketch-Action
+// "schemasketch:diff"). SchemaSketch counts these per day; nothing else
+// about your app or database is sent with them.
 class Client
 {
-    public function __construct(private string $apiUrl, private ?string $token, private int $timeout = 15) {}
+    public function __construct(
+        private string $apiUrl,
+        private ?string $token,
+        private int $timeout = 15,
+        private ?string $action = null,
+    ) {}
 
-    public static function fromConfig(): self
+    /** @param  string|null  $action  the artisan command, e.g. "schemasketch:diff" */
+    public static function fromConfig(?string $action = null): self
     {
-        return new self(config('schemasketch.api_url'), config('schemasketch.token'), (int) config('schemasketch.timeout'));
+        return new self(config('schemasketch.api_url'), config('schemasketch.token'), (int) config('schemasketch.timeout'), $action);
+    }
+
+    public static function userAgent(): string
+    {
+        return 'schemasketch-laravel/'.self::version();
+    }
+
+    /** The installed package version ("0.7.0"), or "dev" for a branch checkout. */
+    public static function version(): string
+    {
+        try {
+            $version = InstalledVersions::getPrettyVersion('schemasketch/laravel');
+        } catch (\Throwable) {
+            $version = null;
+        }
+
+        return preg_match('/^v?(\d+\.\d+\.\d+)$/', (string) $version, $m) ? $m[1] : 'dev';
     }
 
     public function hasToken(): bool
@@ -71,7 +100,12 @@ class Client
 
         try {
             /** @var Response $response */
-            $response = $call(Http::baseUrl($this->apiUrl)->withToken($this->token)->acceptJson()->timeout($this->timeout));
+            $http = Http::baseUrl($this->apiUrl)->withToken($this->token)->acceptJson()->timeout($this->timeout)
+                ->withUserAgent(self::userAgent());
+            if ($this->action !== null && preg_match('/^[a-z][a-z0-9_:\-]{0,47}$/', $this->action)) {
+                $http = $http->withHeaders(['X-SchemaSketch-Action' => $this->action]);
+            }
+            $response = $call($http);
         } catch (ConnectionException $e) {
             throw new ApiException("Couldn't reach SchemaSketch at {$this->apiUrl}. Check your connection and try again.");
         }

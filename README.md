@@ -239,6 +239,17 @@ To show what's in your database rather than what's in the diagram, run
 PlantUML in a Markdown file uses a ` ```plantuml ` block, which GitLab draws;
 GitHub needs an add-on for it.
 
+## What the package sends
+
+The package only talks to SchemaSketch when a command needs the linked
+diagram (`pull`, `diff`, `push`, `status`, `export`). Each request says it
+comes from this package and which command sent it: the `User-Agent` is
+`schemasketch-laravel/<version>` and the `X-SchemaSketch-Action` header is
+the command name, such as `schemasketch:diff`. SchemaSketch counts these per
+day so it can see which commands are used. Nothing else about your app,
+your environment or your database rides along with them, and there are no
+extra "phone home" requests.
+
 ## License
 
 MIT

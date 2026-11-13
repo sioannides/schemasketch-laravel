@@ -48,7 +48,7 @@ class DiffCommand extends Command
         }
 
         try {
-            $diagram = Client::fromConfig()->schema($diagramId);
+            $diagram = Client::fromConfig($this->getName())->schema($diagramId);
         } catch (ApiException $e) {
             return $this->cannotCheck($e->getMessage());
         }

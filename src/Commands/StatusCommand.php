@@ -26,7 +26,7 @@ class StatusCommand extends Command
 
     public function handle(): int
     {
-        $client = Client::fromConfig();
+        $client = Client::fromConfig($this->getName());
         $this->line('<options=bold>SchemaSketch status</>');
         $this->show('·', 'API', Terminal::text((string) config('schemasketch.api_url')));
 
