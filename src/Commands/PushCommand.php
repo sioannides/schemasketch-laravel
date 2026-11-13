@@ -36,7 +36,7 @@ class PushCommand extends Command
         }
 
         try {
-            $diagram = Client::fromConfig()->schema($diagramId);
+            $diagram = Client::fromConfig($this->getName())->schema($diagramId);
         } catch (ApiException $e) {
             $this->error(Terminal::text($e->getMessage()));
 

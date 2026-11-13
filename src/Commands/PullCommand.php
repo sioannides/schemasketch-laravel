@@ -38,7 +38,7 @@ class PullCommand extends Command
             return self::FAILURE;
         }
 
-        $client = Client::fromConfig();
+        $client = Client::fromConfig($this->getName());
         $diagramId = $this->option('diagram') ?: config('schemasketch.diagram');
 
         try {

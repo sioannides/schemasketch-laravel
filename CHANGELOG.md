@@ -9,6 +9,12 @@ dates that section and opens a pull request to `main`; once it is merged,
 
 ## Unreleased
 
+- Requests to SchemaSketch now say they come from this package and which
+  command sent them (`User-Agent: schemasketch-laravel/<version>`,
+  `X-SchemaSketch-Action: schemasketch:diff`), so SchemaSketch can count
+  which commands are used. No extra requests and no other data; see "What
+  the package sends" in the README.
+
 ## 0.6.1 (2026-11-10)
 
 - Maintenance: `symfony/finder` 8.1.11 in the package's own development
